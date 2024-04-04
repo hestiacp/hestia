@@ -4,13 +4,17 @@ $TAB = "CRON";
 // Main include
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
 
-// Check if $output contains \ and if yes, add two \\ to escape it
-foreach ($output as $key => $value) {
-	$output[$key] = str_replace("\\", "\\\\", $value);
-}
-
 // Data
+
 exec(HESTIA_CMD . "v-list-cron-jobs $user json", $output, $return_var);
+// Fix quotes and backslash
+foreach ($output as $key => $value) {
+	$newvalue = str_replace("\\\"", "|", $value);
+	$newvalue = str_replace("\"", "'", $newvalue);
+	$newvalue = str_replace("\\", "\\\\", $newvalue);
+	$newvalue = str_replace("|", "\\\"", $newvalue);
+	$output[$key] = str_replace("'", "\"", $newvalue);
+}
 $data = json_decode(implode("", $output), true);
 if ($_SESSION["userSortOrder"] == "name") {
 	ksort($data);

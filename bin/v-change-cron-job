@@ -54,7 +54,7 @@ time=$(echo "$time_n_date" | cut -f 1 -d \ )
 date=$(echo "$time_n_date" | cut -f 2 -d \ )
 
 # Concatenating cron string
-command=$(echo "$command" | sed -e "s/'/%quote%/g")
+command=$(echo "$command" | sed -e 's/"/\\\\"/g' -e "s/'/%quote%/g")
 str="JOB='$job' MIN='$min' HOUR='$hour' DAY='$day' MONTH='$month' WDAY='$wday'"
 str="$str CMD='$command' SUSPENDED='no' TIME='$time' DATE='$date'"
 

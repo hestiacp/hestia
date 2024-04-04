@@ -24,7 +24,11 @@ check_return_code_redirect($return_var, $output, "/list/cron/");
 
 // Check if $output contains \ and if yes, add two \\ to escape it
 foreach ($output as $key => $value) {
-	$output[$key] = str_replace("\\", "\\\\", $value);
+	$newvalue = str_replace("\\\"", "|", $value);
+	$newvalue = str_replace("\"", "'", $newvalue);
+	$newvalue = str_replace("\\", "\\\\", $newvalue);
+	$newvalue = str_replace("|", "\\\"", $newvalue);
+	$output[$key] = str_replace("'", "\"", $newvalue);
 }
 $data = json_decode(implode("", $output), true);
 unset($output);
@@ -37,7 +41,7 @@ $v_hour = $data[$v_job]["HOUR"];
 $v_day = $data[$v_job]["DAY"];
 $v_month = $data[$v_job]["MONTH"];
 $v_wday = $data[$v_job]["WDAY"];
-$v_cmd = $data[$v_job]["CMD"];
+$v_cmd = str_replace("\\\"", "\"", $data[$v_job]["CMD"]);
 $v_date = $data[$v_job]["DATE"];
 $v_time = $data[$v_job]["TIME"];
 $v_suspended = $data[$v_job]["SUSPENDED"];
