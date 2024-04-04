@@ -4,7 +4,7 @@ $TAB = "CRON";
 // Main include
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
 
-// Data
+// Check if $output contains \ and if yes, add two \\ to escape it
 exec(HESTIA_CMD . "v-list-cron-jobs $user json", $output, $return_var);
 $data = json_decode(implode("", $output), true);
 if ($_SESSION["userSortOrder"] == "name") {

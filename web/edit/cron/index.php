@@ -22,6 +22,10 @@ $v_job = quoteshellarg($_GET["job"]);
 exec(HESTIA_CMD . "v-list-cron-job " . $user . " " . $v_job . " 'json'", $output, $return_var);
 check_return_code_redirect($return_var, $output, "/list/cron/");
 
+// Check if $output contains \ and if yes, add two \\ to escape it
+foreach ($output as $key => $value) {
+	$output[$key] = str_replace("\\", "\\\\", $value);
+}
 $data = json_decode(implode("", $output), true);
 unset($output);
 
