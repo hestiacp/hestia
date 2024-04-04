@@ -19,7 +19,7 @@ hour=$4
 day=$5
 month=$6
 wday=$7
-command=$(echo "$8" | sed -e 's/\\/\\\\/g' -e 's/"/\\\\"/g' -e "s/'/%quote%/g" )
+command=$(echo "$8" | sed -e 's/\\/\\\\/g' -e 's/"/\\\\"/g' -e "s/'/%quote%/g")
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
