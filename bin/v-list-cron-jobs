@@ -30,7 +30,7 @@ json_list() {
 	echo "{"
 	while read -r str; do
 		parse_object_kv_list "$str"
-		CMD=$(echo "$CMD" | sed -e 's/"/\\\\"/g' -e "s/%quote%/'/g")
+		CMD=$(echo "$CMD" | sed -e 's/"/\"/g' -e "s/%quote%/'/g")
 		echo -n '    "'$JOB'": {
         "MIN": "'$MIN'",
         "HOUR": "'$HOUR'",
