@@ -28,7 +28,11 @@ if (empty($data)) {
 	// Iterate over the $data object and find the CMD line from each job by checking v-list-cron-job
 	foreach ($data as $key => $value) {
 		$v_job = $key;
-		exec(HESTIA_CMD . "v-list-cron-job " . $user . " " . $v_job . " 'json'", $singleoutput, $return_var);
+		exec(
+			HESTIA_CMD . "v-list-cron-job " . $user . " " . $v_job . " 'json'",
+			$singleoutput,
+			$return_var,
+		);
 		// Fix quotes and backslash
 		foreach ($singleoutput as $skey => $svalue) {
 			$newsvalue = str_replace("\\\"", "|", $svalue);
@@ -38,7 +42,8 @@ if (empty($data)) {
 			$singleoutput[$skey] = str_replace("'", "\"", $newsvalue);
 		}
 		$singledata = json_decode(implode("", $singleoutput), true);
-		$data[$v_job]["CMD"] = $singledata[$v_job]["CMD"] ?? "Cron tab is broken, please press save.";
+		$data[$v_job]["CMD"] =
+			$singledata[$v_job]["CMD"] ?? "Cron tab is broken, please press save.";
 	}
 }
 
