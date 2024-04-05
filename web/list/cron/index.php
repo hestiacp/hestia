@@ -4,46 +4,21 @@ $TAB = "CRON";
 // Main include
 include $_SERVER["DOCUMENT_ROOT"] . "/inc/main.php";
 
-// Data
-
+// Retrieve cron job data
 exec(HESTIA_CMD . "v-list-cron-jobs $user json", $output, $return_var);
-// Fix quotes and backslash
-foreach ($output as $key => $value) {
-	$newvalue = str_replace("\\\"", "|", $value);
-	$newvalue = str_replace("\"", "'", $newvalue);
-	$newvalue = str_replace("\\", "\\\\", $newvalue);
-	$newvalue = str_replace("|", "\\\"", $newvalue);
-	$output[$key] = str_replace("'", "\"", $newvalue);
-}
+
+// Try to decode output as json
 $data = json_decode(implode("", $output), true);
 
-// If data is empty, try to remove the line containing "CMD" in $output and try again
-if (empty($data)) {
-	foreach ($output as $key => $value) {
-		if (strpos($value, "CMD") !== false) {
-			$output[$key] = "\"CMD\": \"Cron tab is broken, please press save.\",";
-		}
-	}
-	$data = json_decode(implode("", $output), true);
-	// Iterate over the $data object and find the CMD line from each job by checking v-list-cron-job
+// if data is empty, but $output doesn't only contain this string {}, set error message
+if (empty($data) && (implode("",$output) != "{}")) {
+	$_SESSION["error_msg"] = "Cron jobs could not be retrieved. Contact Server Administrator";
+	$data = [];
+	$retrieve_error = true;
+} else {
+	// decode base64 encoded string "CMD" in $data
 	foreach ($data as $key => $value) {
-		$v_job = $key;
-		exec(
-			HESTIA_CMD . "v-list-cron-job " . $user . " " . $v_job . " 'json'",
-			$singleoutput,
-			$return_var,
-		);
-		// Fix quotes and backslash
-		foreach ($singleoutput as $skey => $svalue) {
-			$newsvalue = str_replace("\\\"", "|", $svalue);
-			$newsvalue = str_replace("\"", "'", $newsvalue);
-			$newsvalue = str_replace("\\", "\\\\", $newsvalue);
-			$newsvalue = str_replace("|", "\\\"", $newsvalue);
-			$singleoutput[$skey] = str_replace("'", "\"", $newsvalue);
-		}
-		$singledata = json_decode(implode("", $singleoutput), true);
-		$data[$v_job]["CMD"] =
-			$singledata[$v_job]["CMD"] ?? "Cron tab is broken, please press save.";
+		$data[$key]["CMD"] = base64_decode($value["CMD"]);
 	}
 }
 
@@ -54,8 +29,14 @@ if ($_SESSION["userSortOrder"] == "name") {
 }
 unset($output);
 
+
 // Render page
 render_page($user, $TAB, "list_cron");
+
+unset($retrieve_error);
+// Flush session messages
+unset($_SESSION["error_msg"]);
+unset($_SESSION["ok_msg"]);
 
 // Back uri
 $_SESSION["back"] = $_SERVER["REQUEST_URI"];

@@ -703,7 +703,7 @@ sync_cron_jobs() {
 		parse_object_kv_list "$line"
 		if [ "$SUSPENDED" = 'no' ]; then
 			# Replace \" with "
-			CMD=$(echo "$CMD" | sed -e 's/\\"/"/g')
+			CMD=$(base64 -d <<< "$CMD")
 			echo "$MIN $HOUR $DAY $MONTH $WDAY $CMD" | sed -e "s/%quote%/'/g" -e "s/%dots%/:/g" >> $crontab
 		fi
 	done < $USER_DATA/cron.conf
