@@ -63,27 +63,27 @@ fi
 # Migrate cron job commands to new base64 encoded form
 # Search for all user cron jobs
 for user in $(ls $HESTIA/data/users); do
-    # Check if user has cron jobs
-    if [ -f "$HESTIA/data/users/$user/cron.conf" ]; then
-        # Read cron jobs
-        while IFS= read -r line; do
-            parse_object_kv_list "$line"
-            # Attempt to decode the command from base64
-            decoded_command=$(echo "$CMD" | base64 -d 2>/dev/null)
-            if [ $? -eq 0 ]; then # Successfully decoded, meaning it was already base64
-                # Check if decoded command matches the original to determine if it was actually base64 encoded
-                if ! echo "$decoded_command" | base64 | grep -q "$CMD"; then
-                    # It wasn't a properly base64 encoded command; re-encode it.
-                    command=$(echo -n "$decoded_command" | base64 -w 0)
-                    sed -i "s~CMD='$CMD'~CMD='$command'~" "$HESTIA/data/users/$user/cron.conf"
-                fi
-            else
-                # The command is not in base64 format; encode it.
-                command=$(echo -n "$CMD" | base64 -w 0)
-                sed -i "s~CMD='$CMD'~CMD='$command'~" "$HESTIA/data/users/$user/cron.conf"
-            fi
-        done < "$HESTIA/data/users/$user/cron.conf"
-    fi
+	# Check if user has cron jobs
+	if [ -f "$HESTIA/data/users/$user/cron.conf" ]; then
+		# Read cron jobs
+		while IFS= read -r line; do
+			parse_object_kv_list "$line"
+			# Attempt to decode the command from base64
+			decoded_command=$(echo "$CMD" | base64 -d 2> /dev/null)
+			if [ $? -eq 0 ]; then # Successfully decoded, meaning it was already base64
+				# Check if decoded command matches the original to determine if it was actually base64 encoded
+				if ! echo "$decoded_command" | base64 | grep -q "$CMD"; then
+					# It wasn't a properly base64 encoded command; re-encode it.
+					command=$(echo -n "$decoded_command" | base64 -w 0)
+					sed -i "s~CMD='$CMD'~CMD='$command'~" "$HESTIA/data/users/$user/cron.conf"
+				fi
+			else
+				# The command is not in base64 format; encode it.
+				command=$(echo -n "$CMD" | base64 -w 0)
+				sed -i "s~CMD='$CMD'~CMD='$command'~" "$HESTIA/data/users/$user/cron.conf"
+			fi
+		done < "$HESTIA/data/users/$user/cron.conf"
+	fi
 done
 # Run Sync cron jobs
 sync_cron_jobs

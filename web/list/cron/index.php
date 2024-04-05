@@ -11,7 +11,7 @@ exec(HESTIA_CMD . "v-list-cron-jobs $user json", $output, $return_var);
 $data = json_decode(implode("", $output), true);
 
 // if data is empty, but $output doesn't only contain this string {}, set error message
-if (empty($data) && (implode("",$output) != "{}")) {
+if (empty($data) && implode("", $output) != "{}") {
 	$_SESSION["error_msg"] = "Cron jobs could not be retrieved. Contact Server Administrator";
 	$data = [];
 	$retrieve_error = true;
@@ -28,7 +28,6 @@ if ($_SESSION["userSortOrder"] == "name") {
 	$data = array_reverse($data, true);
 }
 unset($output);
-
 
 // Render page
 render_page($user, $TAB, "list_cron");
