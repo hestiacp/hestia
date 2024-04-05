@@ -62,7 +62,7 @@ fi
 
 # Migrate cron job commands to new base64 encoded form
 # Search for all user cron jobs
-for user in $(ls $HESTIA/data/users); do
+for user in $(v-list-users plain | cut -f1); do
 	# Check if user has cron jobs
 	if [ -f "$HESTIA/data/users/$user/cron.conf" ]; then
 		# Read cron jobs
