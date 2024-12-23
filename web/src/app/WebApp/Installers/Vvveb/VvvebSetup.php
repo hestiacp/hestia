@@ -2,7 +2,7 @@
 
 namespace Hestia\WebApp\Installers\Vvveb;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class VvvebSetup extends BaseSetup {
 	protected $appInfo = [
@@ -12,8 +12,6 @@ class VvvebSetup extends BaseSetup {
 		"version" => "latest",
 		"thumbnail" => "vvveb-symbol.svg",
 	];
-
-	protected $appname = "vvveb";
 
 	protected $config = [
 		"form" => [
@@ -41,11 +39,13 @@ class VvvebSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				$this->getDocRoot("/cli.php"),
+				$installationTarget->getDocRoot("/cli.php"),
 				"install",
 				"host=" . addcslashes("localhost", "\\'"),
 				"user=" . $this->appcontext->user() . "_" . $options["database_user"],

@@ -1,12 +1,12 @@
 <?php
 
-namespace Hestia\WebApp\Installers\Wordpress;
+namespace Hestia\WebApp\Installers\WordPress;
 
 use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
-class WordpressSetup extends BaseSetup {
+class WordPressSetup extends BaseSetup {
 	protected $appInfo = [
 		"name" => "WordPress",
 		"group" => "cms",
@@ -15,7 +15,6 @@ class WordpressSetup extends BaseSetup {
 		"thumbnail" => "wp-thumb.png",
 	];
 
-	protected $appname = "wordpress";
 	protected $config = [
 		"form" => [
 			//'protocol' => [
@@ -69,13 +68,15 @@ class WordpressSetup extends BaseSetup {
 	];
 
 	public function install(array $options = null) {
-		parent::setAppDirInstall($options["install_directory"]);
+		parent::setInstallationDirectory($options["install_directory"]);
 		parent::install($options);
 		parent::setup($options);
 
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->runUser(
 			"v-open-fs-file",
-			[$this->getDocRoot("wp-config-sample.php")],
+			[$installationTarget->getDocRoot("wp-config-sample.php")],
 			$result,
 		);
 		foreach ($result->raw as $line_num => $line) {
@@ -168,7 +169,7 @@ class WordpressSetup extends BaseSetup {
 		if (
 			!$this->appcontext->runUser(
 				"v-move-fs-file",
-				[$tmp_configpath, $this->getDocRoot("wp-config.php")],
+				[$tmp_configpath, $installationTarget->getDocRoot("wp-config.php")],
 				$result,
 			)
 		) {
@@ -176,7 +177,7 @@ class WordpressSetup extends BaseSetup {
 				"Error installing config file in: " .
 					$tmp_configpath .
 					" to:" .
-					$this->getDocRoot("wp-config.php") .
+					$installationTarget->getDocRoot("wp-config.php") .
 					$result->text,
 			);
 		}
@@ -188,7 +189,7 @@ class WordpressSetup extends BaseSetup {
 		);
 		$this->appcontext->runUser(
 			"v-add-fs-directory",
-			[$this->getDocRoot("wp-content/mu-plugins/")],
+			[$installationTarget->getDocRoot("wp-content/mu-plugins/")],
 			$result,
 		);
 		if (
@@ -196,7 +197,7 @@ class WordpressSetup extends BaseSetup {
 				"v-copy-fs-file",
 				[
 					$plugin_output->file,
-					$this->getDocRoot("wp-content/mu-plugins/wp-password-bcrypt.php"),
+					$installationTarget->getDocRoot("wp-content/mu-plugins/wp-password-bcrypt.php"),
 				],
 				$result,
 			)
@@ -205,16 +206,10 @@ class WordpressSetup extends BaseSetup {
 				"Error installing wp-password-bcrypt file in: " .
 					$plugin_output->file .
 					" to:" .
-					$this->getDocRoot("wp-content/mu-plugins/wp-password-bcrypt.php") .
+					$installationTarget->getDocRoot("wp-content/mu-plugins/wp-password-bcrypt.php") .
 					$result->text,
 			);
 		}
-
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
-
-		$sslEnabled = $status->json[$this->domain]["SSL"] == "no" ? 0 : 1;
-		$webDomain = ($sslEnabled ? "https://" : "http://") . $this->domain . "/";
-		$webPort = $sslEnabled ? "443" : "80";
 
 		if (substr($options["install_directory"], 0, 1) == "/") {
 			$options["install_directory"] = substr($options["install_directory"], 1);
@@ -233,10 +228,10 @@ class WordpressSetup extends BaseSetup {
 			"--insecure",
 			"--resolve " .
 			quoteshellarg(
-				$this->domain . ":$webPort:" . $this->appcontext->getWebDomainIp($this->domain),
+				$installationTarget->domainName . ":" . $installationTarget->getPort() . ":" . $installationTarget->ipAddress,
 			),
 			quoteshellarg(
-				$webDomain . $options["install_directory"] . "/wp-admin/install.php?step=2",
+				$installationTarget->getUrl() . '/' . $options["install_directory"] . "/wp-admin/install.php?step=2",
 			),
 			"--data-binary " .
 			quoteshellarg(

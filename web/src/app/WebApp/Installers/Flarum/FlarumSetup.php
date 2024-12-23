@@ -2,7 +2,7 @@
 namespace Hestia\WebApp\Installers\Flarum;
 
 use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class FlarumSetup extends BaseSetup {
@@ -13,8 +13,6 @@ class FlarumSetup extends BaseSetup {
 		"version" => "latest",
 		"thumbnail" => "fl-thumb.png",
 	];
-
-	protected $appname = "flarum";
 
 	protected $config = [
 		"form" => [
@@ -55,21 +53,24 @@ class FlarumSetup extends BaseSetup {
 	}
 
 	public function install(array $options = null): bool {
-		parent::setAppDirInstall($options["install_directory"]);
+		parent::setInstallationDirectory($options["install_directory"]);
 		parent::install($options);
 		parent::setup($options);
+
+		$installationTarget = $this->getInstallationTarget();
+
 		$result = null;
 
 		// Move public folder content (https://docs.flarum.org/install/#customizing-paths)
 		if (
 			!$this->appcontext->runUser(
 				"v-list-fs-directory",
-				[$this->getDocRoot("public")],
+				[$installationTarget->getDocRoot("public")],
 				$result,
 			)
 		) {
 			throw new \Exception(
-				"Error listing folder at: " . $this->getDocRoot("public") . $result->text,
+				"Error listing folder at: " . $installationTarget->getDocRoot("public") . $result->text,
 			);
 		}
 		foreach ($result->raw as $line_num => $line) {
@@ -83,15 +84,15 @@ class FlarumSetup extends BaseSetup {
 						!$this->appcontext->runUser(
 							"v-move-fs-directory",
 							[
-								$this->getDocRoot("public") . "/" . $name,
-								$this->getDocRoot() . "/" . $name,
+								$installationTarget->getDocRoot("public") . "/" . $name,
+								$installationTarget->getDocRoot() . "/" . $name,
 							],
 							$result,
 						)
 					) {
 						throw new \Exception(
 							"Error moving folder at: " .
-								$this->getDocRoot("public") .
+								$installationTarget->getDocRoot("public") .
 								"/" .
 								$name .
 								$result->text,
@@ -102,15 +103,15 @@ class FlarumSetup extends BaseSetup {
 						!$this->appcontext->runUser(
 							"v-move-fs-file",
 							[
-								$this->getDocRoot("public") . "/" . $name,
-								$this->getDocRoot() . "/" . $name,
+								$installationTarget->getDocRoot("public") . "/" . $name,
+								$installationTarget->getDocRoot() . "/" . $name,
 							],
 							$result,
 						)
 					) {
 						throw new \Exception(
 							"Error moving file at: " .
-								$this->getDocRoot("public") .
+								$installationTarget->getDocRoot("public") .
 								"/" .
 								$name .
 								$result->text,
@@ -122,38 +123,31 @@ class FlarumSetup extends BaseSetup {
 		if (
 			!$this->appcontext->runUser(
 				"v-delete-fs-directory",
-				[$this->getDocRoot("public")],
+				[$installationTarget->getDocRoot("public")],
 				$result,
 			)
 		) {
 			throw new \Exception(
-				"Error deleting folder at: " . $this->getDocRoot("public") . $result->text,
+				"Error deleting folder at: " . $installationTarget->getDocRoot("public") . $result->text,
 			);
 		}
 
 		// Not using 'public'; enable protection rewrite rules and update paths
 		$result = $this->updateFile(
-			$this->getDocRoot(".htaccess"),
+			$installationTarget->getDocRoot(".htaccess"),
 			"# RewriteRule ",
 			"RewriteRule ",
 		);
 		$result = $this->updateFile(
-			$this->getDocRoot("index.php"),
+			$installationTarget->getDocRoot("index.php"),
 			'$site = require \'../site.php\';',
 			'$site = require \'./site.php\';',
 		);
 		$result = $this->updateFile(
-			$this->getDocRoot("site.php"),
+			$installationTarget->getDocRoot("site.php"),
 			"'public' => __DIR__.'/public',",
 			"'public' => __DIR__,",
 		);
-
-		// POST install
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
-
-		$sslEnabled = $status->json[$this->domain]["SSL"] == "no" ? 0 : 1;
-		$webDomain = ($sslEnabled ? "https://" : "http://") . $this->domain;
-		$webPort = $sslEnabled ? "443" : "80";
 
 		$mysql_host = $options["database_host"];
 		$mysql_database = addcslashes(
@@ -178,9 +172,9 @@ class FlarumSetup extends BaseSetup {
 			"--insecure",
 			"--resolve " .
 			quoteshellarg(
-				$this->domain . ":$webPort:" . $this->appcontext->getWebDomainIp($this->domain),
+				$installationTarget->domainName . ":" . $installationTarget->getPort() . ":" . $installationTarget->ipAddress,
 			),
-			quoteshellarg($webDomain . $subfolder . "/index.php"),
+			quoteshellarg($installationTarget->getUrl() . '/' . $subfolder . "/index.php"),
 			"--data-binary " .
 			quoteshellarg(
 				http_build_query([

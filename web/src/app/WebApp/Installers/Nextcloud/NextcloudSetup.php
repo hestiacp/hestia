@@ -2,7 +2,7 @@
 
 namespace Hestia\WebApp\Installers\Nextcloud;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class NextcloudSetup extends BaseSetup {
@@ -13,8 +13,6 @@ class NextcloudSetup extends BaseSetup {
 		"version" => "latest",
 		"thumbnail" => "nextcloud-thumb.png",
 	];
-
-	protected $appname = "nextcloud";
 
 	protected $config = [
 		"form" => [
@@ -39,16 +37,13 @@ class NextcloudSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
-		// install nextcloud
-		$php_version = $this->appcontext->getSupportedPHP(
-			$this->config["server"]["php"]["supported"],
-		);
+		$installationTarget = $this->getInstallationTarget();
 
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("occ")),
+				quoteshellarg($installationTarget->getDocRoot("occ")),
 				"maintenance:install",
 				"--database mysql",
 				"--database-name " .
@@ -67,16 +62,16 @@ class NextcloudSetup extends BaseSetup {
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("occ")),
+				quoteshellarg($installationTarget->getDocRoot("occ")),
 				"config:system:set",
-				"trusted_domains 2 --value=" . quoteshellarg($this->domain),
+				"trusted_domains 2 --value=" . quoteshellarg($installationTarget->domainName),
 			],
 			$status,
 		);
 
 		// Bump minimum memory limit to 512M
 		$result = null;
-		$file = $this->getDocRoot(".user.ini");
+		$file = $installationTarget->getDocRoot(".user.ini");
 		$this->appcontext->runUser("v-open-fs-file", [$file], $result);
 		array_push($result->raw, "memory_limit=512M");
 		$tmp = $this->saveTempFile(implode("\r\n", $result->raw));

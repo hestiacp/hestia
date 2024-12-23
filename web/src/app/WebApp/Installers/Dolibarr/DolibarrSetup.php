@@ -2,7 +2,7 @@
 
 namespace Hestia\WebApp\Installers\Dolibarr;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class DolibarrSetup extends BaseSetup {
 	protected $appInfo = [
@@ -12,8 +12,6 @@ class DolibarrSetup extends BaseSetup {
 		"version" => "20.0.2",
 		"thumbnail" => "dolibarr-thumb.png",
 	];
-
-	protected $appname = "dolibarr";
 
 	protected $config = [
 		"form" => [
@@ -52,16 +50,16 @@ class DolibarrSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->runUser(
 			"v-copy-fs-directory",
-			[$this->getDocRoot($this->extractsubdir . "/dolibarr-20.0.2/."), $this->getDocRoot()],
+			[
+				$installationTarget->getDocRoot($this->extractsubdir . "/dolibarr-20.0.2/."),
+				$installationTarget->getDocRoot()
+			],
 			$status,
 		);
-
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
-
-		$sslEnabled = $status->json[$this->domain]["SSL"] == "no" ? false : true;
-		$webDomain = ($sslEnabled ? "https://" : "http://") . $this->domain;
 
 		$language = $options["language"] ?? "en_EN";
 		$username = rawurlencode($options["dolibarr_account_username"]);
@@ -73,29 +71,29 @@ class DolibarrSetup extends BaseSetup {
 		$this->appcontext->runUser(
 			"v-copy-fs-file",
 			[
-				$this->getDocRoot("htdocs/conf/conf.php.example"),
-				$this->getDocRoot("htdocs/conf/conf.php"),
+				$installationTarget->getDocRoot("htdocs/conf/conf.php.example"),
+				$installationTarget->getDocRoot("htdocs/conf/conf.php"),
 			],
 			$status,
 		);
 
 		$this->appcontext->runUser(
 			"v-change-fs-file-permission",
-			[$this->getDocRoot("htdocs/conf/conf.php"), "666"],
+			[$installationTarget->getDocRoot("htdocs/conf/conf.php"), "666"],
 			$status,
 		);
 
 		$cmd =
 			"curl --request POST " .
-			($sslEnabled ? "" : "--insecure ") .
-			"--url $webDomain/install/step1.php " .
+			($installationTarget->isSslEnabled ? "" : "--insecure ") .
+			"--url " . $installationTarget->getUrl() . "/install/step1.php " .
 			"--data 'testpost=ok&action=set" .
 			"&main_dir=" .
-			rawurlencode($this->getDocRoot("htdocs")) .
+			rawurlencode($installationTarget->getDocRoot("htdocs")) .
 			"&main_data_dir=" .
-			rawurlencode($this->getDocRoot("documents")) .
+			rawurlencode($installationTarget->getDocRoot("documents")) .
 			"&main_url=" .
-			rawurlencode($webDomain) .
+			rawurlencode($installationTarget->getUrl()) .
 			"&db_name=$databaseName" .
 			"&db_type=mysqli" .
 			"&db_host=localhost" .
@@ -105,21 +103,21 @@ class DolibarrSetup extends BaseSetup {
 			"&db_pass=$databasePassword" .
 			"&selectlang=$language' && " .
 			"curl --request POST " .
-			($sslEnabled ? "" : "--insecure ") .
-			"--url $webDomain/install/step2.php " .
+			($installationTarget->isSslEnabled ? "" : "--insecure ") .
+			"--url " . $installationTarget->getUrl() . "/install/step2.php " .
 			"--data 'testpost=ok&action=set" .
 			"&dolibarr_main_db_character_set=utf8" .
 			"&dolibarr_main_db_collation=utf8_unicode_ci" .
 			"&selectlang=$language' && " .
 			"curl --request POST " .
-			($sslEnabled ? "" : "--insecure ") .
-			"--url $webDomain/install/step4.php " .
+			($installationTarget->isSslEnabled ? "" : "--insecure ") .
+			"--url " . $installationTarget->getUrl() . "/install/step4.php " .
 			"--data 'testpost=ok&action=set" .
 			"&dolibarrpingno=checked" .
 			"&selectlang=$language' && " .
 			"curl --request POST " .
-			($sslEnabled ? "" : "--insecure ") .
-			"--url $webDomain/install/step5.php " .
+			($installationTarget->isSslEnabled ? "" : "--insecure ") .
+			"--url " . $installationTarget->getUrl() . "/install/step5.php " .
 			"--data 'testpost=ok&action=set" .
 			"&login=$username" .
 			"&pass=$password" .

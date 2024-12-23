@@ -2,12 +2,10 @@
 
 namespace Hestia\WebApp\Installers\Drupal;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class DrupalSetup extends BaseSetup {
-	protected $appname = "drupal";
-
 	protected $appInfo = [
 		"name" => "Drupal",
 		"group" => "cms",
@@ -39,8 +37,11 @@ class DrupalSetup extends BaseSetup {
 	public function install(array $options = null): bool {
 		parent::install($options);
 		parent::setup($options);
+
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->runComposer(
-			["require", "-d " . $this->getDocRoot(), "drush/drush"],
+			["require", "-d " . $installationTarget->getDocRoot(), "drush/drush"],
 			$status2,
 			["version" => 2, "php_version" => $options["php_version"]],
 		);
@@ -54,7 +55,7 @@ class DrupalSetup extends BaseSetup {
 		$tmp_configpath = $this->saveTempFile($htaccess_rewrite);
 		$this->appcontext->runUser(
 			"v-move-fs-file",
-			[$tmp_configpath, $this->getDocRoot(".htaccess")],
+			[$tmp_configpath, $installationTarget->getDocRoot(".htaccess")],
 			$result,
 		);
 
@@ -62,7 +63,7 @@ class DrupalSetup extends BaseSetup {
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("/vendor/drush/drush/drush")),
+				quoteshellarg($installationTarget->getDocRoot("/vendor/drush/drush/drush")),
 				"site-install",
 				"standard",
 				"--db-url=" .

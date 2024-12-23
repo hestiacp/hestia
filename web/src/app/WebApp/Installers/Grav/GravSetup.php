@@ -2,8 +2,7 @@
 
 namespace Hestia\WebApp\Installers\Grav;
 
-use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class GravSetup extends BaseSetup {
 	protected $appInfo = [
@@ -13,8 +12,6 @@ class GravSetup extends BaseSetup {
 		"version" => "latest",
 		"thumbnail" => "grav-symbol.svg",
 	];
-
-	protected $appname = "grav";
 
 	protected $config = [
 		"form" => [
@@ -41,14 +38,16 @@ class GravSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
+		$installationTarget = $this->getInstallationTarget();
+
 		if ($options["admin"] == true) {
-			chdir($this->getDocRoot());
+			chdir($installationTarget->getDocRoot());
 
 			$this->appcontext->runUser(
 				"v-run-cli-cmd",
 				[
 					"/usr/bin/php" . $options["php_version"],
-					$this->getDocRoot("/bin/gpm"),
+					$installationTarget->getDocRoot("/bin/gpm"),
 					"install admin",
 				],
 				$status,
@@ -57,7 +56,7 @@ class GravSetup extends BaseSetup {
 				"v-run-cli-cmd",
 				[
 					"/usr/bin/php" . $options["php_version"],
-					$this->getDocRoot("/bin/plugin"),
+					$installationTarget->getDocRoot("/bin/plugin"),
 					"login new-user",
 					"-u " . $options["username"],
 					"-p " . $options["password"],

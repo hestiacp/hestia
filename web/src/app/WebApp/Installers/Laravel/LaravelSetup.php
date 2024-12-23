@@ -2,11 +2,9 @@
 
 namespace Hestia\WebApp\Installers\Laravel;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class LaravelSetup extends BaseSetup {
-	protected $appname = "laravel";
-
 	protected $appInfo = [
 		"name" => "Laravel",
 		"group" => "framework",
@@ -35,6 +33,8 @@ class LaravelSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
+		$installationTarget = $this->getInstallationTarget();
+
 		$result = null;
 
 		$htaccess_rewrite = '
@@ -46,7 +46,7 @@ class LaravelSetup extends BaseSetup {
 		$tmp_configpath = $this->saveTempFile($htaccess_rewrite);
 		$this->appcontext->runUser(
 			"v-move-fs-file",
-			[$tmp_configpath, $this->getDocRoot(".htaccess")],
+			[$tmp_configpath, $installationTarget->getDocRoot(".htaccess")],
 			$result,
 		);
 

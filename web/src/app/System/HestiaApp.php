@@ -244,10 +244,26 @@ class HestiaApp {
 		}
 	}
 
-	public function getWebDomainIp(string $domain) {
-		$this->runUser("v-list-web-domain", [$domain, "json"], $result);
-		$ip = $result->json[$domain]["IP"];
-		return filter_var($ip, FILTER_VALIDATE_IP);
+	public function getWebDomain(string $domainName): WebDomain
+	{
+		$result = null;
+
+		$this->runUser(
+			"v-list-web-domain",
+			[$domainName, "json"],
+			$result,
+		);
+
+		if ($result === null && $result->code !== 0) {
+			throw new \Exception("Cannot find domain for user");
+		}
+
+		return new WebDomain(
+			$domainName,
+			Util::join_paths($this->getUserHomeDir(), "web", $domainName),
+			filter_var($result->json[$domainName]["IP"], FILTER_VALIDATE_IP),
+			$result->json[$domainName]["SSL"] === "no"
+		);
 	}
 
 	public function getWebDomainPath(string $domain) {

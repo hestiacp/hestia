@@ -2,7 +2,7 @@
 
 namespace Hestia\WebApp\Installers\Symfony;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class SymfonySetup extends BaseSetup {
 	protected $appInfo = [
@@ -12,8 +12,6 @@ class SymfonySetup extends BaseSetup {
 		"version" => "latest",
 		"thumbnail" => "symfony-thumb.png",
 	];
-
-	protected $appname = "symfony";
 
 	protected $config = [
 		"form" => [],
@@ -33,6 +31,9 @@ class SymfonySetup extends BaseSetup {
 
 	public function install(array $options = null): bool {
 		parent::install($options);
+
+		$installationTarget = $this->getInstallationTarget();
+
 		$result = null;
 
 		$htaccess_rewrite = '
@@ -42,18 +43,18 @@ class SymfonySetup extends BaseSetup {
 </IfModule>';
 
 		$this->appcontext->runComposer(
-			["config", "-d " . $this->getDocRoot(), "extra.symfony.allow-contrib", "true"],
+			["config", "-d " . $installationTarget->getDocRoot(), "extra.symfony.allow-contrib", "true"],
 			$result,
 		);
 		$this->appcontext->runComposer(
-			["require", "-d " . $this->getDocRoot(), "symfony/apache-pack"],
+			["require", "-d " . $installationTarget->getDocRoot(), "symfony/apache-pack"],
 			$result,
 		);
 
 		$tmp_configpath = $this->saveTempFile($htaccess_rewrite);
 		$this->appcontext->runUser(
 			"v-move-fs-file",
-			[$tmp_configpath, $this->getDocRoot(".htaccess")],
+			[$tmp_configpath, $installationTarget->getDocRoot(".htaccess")],
 			$result,
 		);
 

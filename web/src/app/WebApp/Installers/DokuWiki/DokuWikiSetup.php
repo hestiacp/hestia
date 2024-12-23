@@ -2,8 +2,7 @@
 
 namespace Hestia\WebApp\Installers\DokuWiki;
 
-use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class DokuWikiSetup extends BaseSetup {
 	protected $appInfo = [
@@ -14,7 +13,6 @@ class DokuWikiSetup extends BaseSetup {
 		"thumbnail" => "dokuwiki-logo.svg",
 	];
 
-	protected $appname = "dokuwiki";
 	protected $extractsubdir = "/tmp-dokuwiki";
 
 	protected $config = [
@@ -66,20 +64,15 @@ class DokuWikiSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
-		//check if ssl is enabled
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
-
-		$sslEnabled = $status->json[$this->domain]["SSL"] == "no" ? 0 : 1;
-
-		$webDomain = ($sslEnabled ? "https://" : "http://") . $this->domain . "/";
+		$installationTarget = $this->getInstallationTarget();
 
 		$this->appcontext->runUser(
 			"v-copy-fs-directory",
 			[
-				$this->getDocRoot(
+				$installationTarget->getDocRoot(
 					$this->extractsubdir . "/dokuwiki-" . $this->appInfo["version"] . "/.",
 				),
-				$this->getDocRoot(),
+				$installationTarget->getDocRoot(),
 			],
 			$status,
 		);
@@ -87,15 +80,18 @@ class DokuWikiSetup extends BaseSetup {
 		// enable htaccess
 		$this->appcontext->runUser(
 			"v-move-fs-file",
-			[$this->getDocRoot(".htaccess.dist"), $this->getDocRoot(".htaccess")],
+			[
+				$installationTarget->getDocRoot(".htaccess.dist"),
+				$installationTarget->getDocRoot(".htaccess")
+			],
 			$status,
 		);
 
-		$installUrl = $webDomain . "install.php";
+		$installUrl = $installationTarget->getUrl() . "/install.php";
 
 		$cmd =
 			"curl --request POST " .
-			($sslEnabled ? "" : "--insecure ") .
+			($installationTarget->isSslEnabled ? "" : "--insecure ") .
 			"--url $installUrl " .
 			"--header 'Content-Type: application/x-www-form-urlencoded' " .
 			"--data l=en " .
@@ -131,7 +127,12 @@ class DokuWikiSetup extends BaseSetup {
 			throw new \Exception(implode(PHP_EOL, $output));
 		}
 		// remove temp folder
-		$this->appcontext->runUser("v-delete-fs-file", [$this->getDocRoot("install.php")], $status);
+		$this->appcontext->runUser(
+			"v-delete-fs-file",
+			[$installationTarget->getDocRoot("install.php")],
+			$status
+		);
+
 		$this->cleanup();
 
 		return $status->code === 0;

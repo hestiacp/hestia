@@ -36,7 +36,9 @@ class AppWizard {
 	}
 
 	public function isDomainRootClean() {
-		$this->appcontext->runUser("v-run-cli-cmd", ["ls", $this->appsetup->getDocRoot()], $status);
+		$installationTarget = $this->appsetup->getInstallationTarget();
+
+		$this->appcontext->runUser("v-run-cli-cmd", ["ls", $installationTarget->getDocRoot()], $status);
 		if ($status->code !== 0) {
 			throw new \Exception("Cannot list domain files");
 		}
