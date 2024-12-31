@@ -52,85 +52,77 @@ class DolibarrSetup extends BaseSetup {
 
 		$installationTarget = $this->getInstallationTarget();
 
-		$this->appcontext->runUser(
-			"v-copy-fs-directory",
-			[
-				$installationTarget->getDocRoot($this->extractsubdir . "/dolibarr-20.0.2/."),
-				$installationTarget->getDocRoot()
-			],
-			$status,
+		$this->appcontext->copyDirectory(
+			$installationTarget->getDocRoot("/dolibarr-" . $this->appInfo["version"] . "/."),
+			$installationTarget->getDocRoot()
 		);
 
 		$language = $options["language"] ?? "en_EN";
-		$username = rawurlencode($options["dolibarr_account_username"]);
-		$password = rawurlencode($options["dolibarr_account_password"]);
-		$databaseUser = rawurlencode($this->appcontext->user() . "_" . $options["database_user"]);
-		$databasePassword = rawurlencode($options["database_password"]);
-		$databaseName = rawurlencode($this->appcontext->user() . "_" . $options["database_name"]);
 
-		$this->appcontext->runUser(
-			"v-copy-fs-file",
+		$this->appcontext->moveFile(
+			$installationTarget->getDocRoot("htdocs/conf/conf.php.example"),
+			$installationTarget->getDocRoot("htdocs/conf/conf.php"),
+		);
+
+		$this->appcontext->changeFilePermissions(
+			$installationTarget->getDocRoot("htdocs/conf/conf.php"),
+			"666"
+		);
+
+		$this->appcontext->addDirectory($installationTarget->getDocRoot("documents"));
+
+		$this->appcontext->sendPostRequest(
+			$installationTarget->getUrl() . "/install/step1.php",
 			[
-				$installationTarget->getDocRoot("htdocs/conf/conf.php.example"),
-				$installationTarget->getDocRoot("htdocs/conf/conf.php"),
-			],
-			$status,
+				'testpost' => 'ok',
+				'action' => 'set',
+				'main_dir' => $installationTarget->getDocRoot("htdocs"),
+				'main_data_dir' => $installationTarget->getDocRoot("documents"),
+				'main_url' => $installationTarget->getUrl(),
+				'db_type' => 'mysqli',
+				'db_host' => 'localhost',
+				'db_port' => '3306',
+				'db_prefix' => 'llx_',
+				'db_name' => $this->appcontext->user() . "_" . $options["database_name"],
+				'db_user' => $this->appcontext->user() . "_" . $options["database_user"],
+				'db_pass' => $options["database_password"],
+				'selectlang' => $language,
+			]
 		);
 
-		$this->appcontext->runUser(
-			"v-change-fs-file-permission",
-			[$installationTarget->getDocRoot("htdocs/conf/conf.php"), "666"],
-			$status,
+		$this->appcontext->sendPostRequest(
+			$installationTarget->getUrl() . "/install/step2.php",
+			[
+				'testpost' => 'ok',
+				'action' => 'set',
+				'dolibarr_main_db_character_set' => 'utf8',
+				'dolibarr_main_db_collation' => 'utf8_unicode_ci',
+				'selectlang' => $language,
+			]
 		);
 
-		$cmd =
-			"curl --request POST " .
-			($installationTarget->isSslEnabled ? "" : "--insecure ") .
-			"--url " . $installationTarget->getUrl() . "/install/step1.php " .
-			"--data 'testpost=ok&action=set" .
-			"&main_dir=" .
-			rawurlencode($installationTarget->getDocRoot("htdocs")) .
-			"&main_data_dir=" .
-			rawurlencode($installationTarget->getDocRoot("documents")) .
-			"&main_url=" .
-			rawurlencode($installationTarget->getUrl()) .
-			"&db_name=$databaseName" .
-			"&db_type=mysqli" .
-			"&db_host=localhost" .
-			"&db_port=3306" .
-			"&db_prefix=llx_" .
-			"&db_user=$databaseUser" .
-			"&db_pass=$databasePassword" .
-			"&selectlang=$language' && " .
-			"curl --request POST " .
-			($installationTarget->isSslEnabled ? "" : "--insecure ") .
-			"--url " . $installationTarget->getUrl() . "/install/step2.php " .
-			"--data 'testpost=ok&action=set" .
-			"&dolibarr_main_db_character_set=utf8" .
-			"&dolibarr_main_db_collation=utf8_unicode_ci" .
-			"&selectlang=$language' && " .
-			"curl --request POST " .
-			($installationTarget->isSslEnabled ? "" : "--insecure ") .
-			"--url " . $installationTarget->getUrl() . "/install/step4.php " .
-			"--data 'testpost=ok&action=set" .
-			"&dolibarrpingno=checked" .
-			"&selectlang=$language' && " .
-			"curl --request POST " .
-			($installationTarget->isSslEnabled ? "" : "--insecure ") .
-			"--url " . $installationTarget->getUrl() . "/install/step5.php " .
-			"--data 'testpost=ok&action=set" .
-			"&login=$username" .
-			"&pass=$password" .
-			"&pass_verif=$password" .
-			"&selectlang=$language'";
+		$this->appcontext->sendPostRequest(
+			$installationTarget->getUrl() . "/install/step4.php",
+			[
+				'testpost' => 'ok',
+				'action' => 'set',
+				'dolibarrpingno' => 'checked',
+				'selectlang' => $language,
+			]
+		);
 
-		exec($cmd, $output, $return_var);
-		if ($return_var > 0) {
-			throw new \Exception(implode(PHP_EOL, $output));
-		}
+		$this->appcontext->sendPostRequest(
+			$installationTarget->getUrl() . "/install/step5.php",
+			[
+				'testpost' => 'ok',
+				'login' => $options["dolibarr_account_username"],
+				'pass' => $options["dolibarr_account_password"],
+				'selectlang' => $language,
+			]
+		);
 
 		$this->cleanup();
 
-		return $status->code === 0;
+		return true;
 	}
 }

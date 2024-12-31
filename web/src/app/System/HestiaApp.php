@@ -16,6 +16,23 @@ class HestiaApp {
 		@mkdir(self::TMPDIR_DOWNLOADS);
 	}
 
+	public function addDirectory(string $path): void
+	{
+		$status = null;
+
+		$this->runUser(
+			"v-add-fs-directory",
+			[$path],
+			$status,
+		);
+
+		if ($status->code !== 0) {
+			throw new RuntimeException(
+				sprintf('Failed to add directory "%s"', $path)
+			);
+		}
+	}
+
 	public function copyDirectory(string $fromPath, string $toPath): void
 	{
 		$status = null;
@@ -46,6 +63,23 @@ class HestiaApp {
 		if ($status->code !== 0) {
 			throw new RuntimeException(
 				sprintf('Failed to move file "%s" to "%s"', $fromPath, $toPath)
+			);
+		}
+	}
+
+	public function changeFilePermissions(string $filePath, string $permission): void
+	{
+		$status = null;
+
+		$this->runUser(
+			"v-change-fs-file-permission",
+			[$filePath, $permission],
+			$status,
+		);
+
+		if ($status->code !== 0) {
+			throw new RuntimeException(
+				sprintf('Failed to change file "%s" permissions to "%s"', $filePath, $permission)
 			);
 		}
 	}
