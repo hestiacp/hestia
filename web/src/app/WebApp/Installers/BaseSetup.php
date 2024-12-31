@@ -9,13 +9,14 @@ use Hestia\WebApp\InstallationTarget;
 use Hestia\WebApp\InstallerInterface;
 use Hestia\WebApp\Installers\Resources\ComposerResource;
 use Hestia\WebApp\Installers\Resources\WpResource;
+use function var_dump;
 
 abstract class BaseSetup implements InstallerInterface {
 	protected $appInfo;
 	protected $config;
 	private $domain;
 	protected $extractsubdir;
-	protected $installationDirectory;
+	protected $installationDirectory = '';
 	protected $appcontext;
 
 	public function __construct($domain, HestiaApp $appcontext) {
@@ -84,7 +85,7 @@ abstract class BaseSetup implements InstallerInterface {
 	{
 		$webDomain = $this->appcontext->getWebDomain($this->domain);
 
-		if (empty($webDomain->domainPath) || !is_dir($webDomain->domainName)) {
+		if (empty($webDomain->domainPath) || !is_dir($webDomain->domainPath)) {
 			throw new Exception(sprintf(
 				"Web domain path '%s' not found for domain '%s'",
 				$webDomain->domainPath,

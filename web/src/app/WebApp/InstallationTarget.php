@@ -13,7 +13,7 @@ class InstallationTarget
 		public readonly string $domainPath,
 		public readonly string $installationDirectory,
 		public readonly string $ipAddress,
-		public readonly bool   $isSslEnabled,
+		public readonly bool $isSslEnabled,
 	) {
 	}
 

@@ -9,11 +9,9 @@ class DokuWikiSetup extends BaseSetup {
 		"name" => "DokuWiki",
 		"group" => "wiki",
 		"enabled" => true,
-		"version" => "2023-04-04a",
+		"version" => "latest",
 		"thumbnail" => "dokuwiki-logo.svg",
 	];
-
-	protected $extractsubdir = "/tmp-dokuwiki";
 
 	protected $config = [
 		"form" => [
@@ -25,9 +23,9 @@ class DokuWikiSetup extends BaseSetup {
 			"initial_ACL_policy" => [
 				"type" => "select",
 				"options" => [
-					"0: Open Wiki (read, write, upload for everyone)", // 0
-					"1: Public Wiki (read for everyone, write and upload for registered users)", // 1
-					"2: Closed Wiki (read, write, upload for registered users only)", // 3
+					"0: Open Wiki (read, write, upload for everyone)",
+					"1: Public Wiki (read for everyone, write and upload for registered users)",
+					"2: Closed Wiki (read, write, upload for registered users only)",
 				],
 			],
 			"content_license" => [
@@ -46,8 +44,7 @@ class DokuWikiSetup extends BaseSetup {
 		],
 		"resources" => [
 			"archive" => [
-				"src" =>
-					"https://github.com/dokuwiki/dokuwiki/releases/download/release-2023-04-04a/dokuwiki-2023-04-04a.zip",
+				"src" => "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz",
 			],
 		],
 		"server" => [
@@ -55,7 +52,7 @@ class DokuWikiSetup extends BaseSetup {
 				"template" => "default",
 			],
 			"php" => [
-				"supported" => ["7.3", "7.4", "8.0", "8.1"],
+				"supported" => ["8.0", "8.1", "8.2", "8.3", "8.4"],
 			],
 		],
 	];
@@ -66,75 +63,36 @@ class DokuWikiSetup extends BaseSetup {
 
 		$installationTarget = $this->getInstallationTarget();
 
-		$this->appcontext->runUser(
-			"v-copy-fs-directory",
-			[
-				$installationTarget->getDocRoot(
-					$this->extractsubdir . "/dokuwiki-" . $this->appInfo["version"] . "/.",
-				),
-				$installationTarget->getDocRoot(),
-			],
-			$status,
+		// Enable htaccess
+		$this->appcontext->moveFile(
+			$installationTarget->getDocRoot(".htaccess.dist"),
+			$installationTarget->getDocRoot(".htaccess")
 		);
 
-		// enable htaccess
-		$this->appcontext->runUser(
-			"v-move-fs-file",
+		$this->appcontext->sendPostRequest(
+			$installationTarget->getUrl() . "/install.php",
 			[
-				$installationTarget->getDocRoot(".htaccess.dist"),
-				$installationTarget->getDocRoot(".htaccess")
+				'l' => 'en',
+				'd[title]' => $options["wiki_name"],
+				'd[acl]' => 'on',
+				'd[superuser]' => $options["superuser"],
+				'd[fullname]' => $options["real_name"],
+				'd[email]' => $options["email"],
+				'd[password]' => $options["password"],
+				'd[confirm]' => $options["password"],
+				'd[policy]' => substr($options["initial_ACL_policy"], 0, 1),
+				'd[licence]' => explode(":", $options["content_license"])[0],
+				'submit' => '',
 			],
-			$status,
+			[
+				'Content-Type: application/x-www-form-urlencoded'
+			],
 		);
 
-		$installUrl = $installationTarget->getUrl() . "/install.php";
-
-		$cmd =
-			"curl --request POST " .
-			($installationTarget->isSslEnabled ? "" : "--insecure ") .
-			"--url $installUrl " .
-			"--header 'Content-Type: application/x-www-form-urlencoded' " .
-			"--data l=en " .
-			"--data 'd[title]=" .
-			rawurlencode($options["wiki_name"]) .
-			"' " .
-			"--data 'd[acl]=on' " .
-			"--data 'd[superuser]=" .
-			rawurlencode($options["superuser"]) .
-			"' " .
-			"--data 'd[fullname]=" .
-			rawurlencode($options["real_name"]) .
-			"' " .
-			"--data 'd[email]=" .
-			rawurlencode($options["email"]) .
-			"' " .
-			"--data 'd[password]=" .
-			rawurlencode($options["password"]) .
-			"' " .
-			"--data 'd[confirm]=" .
-			rawurlencode($options["password"]) .
-			"' " .
-			"--data 'd[policy]=" .
-			substr(rawurlencode($options["initial_ACL_policy"]), 0, 1) .
-			"' " .
-			"--data 'd[license]=" .
-			explode(":", rawurlencode($options["content_license"])[0]) .
-			"' " .
-			"--data submit=";
-
-		exec($cmd, $output, $return_var);
-		if ($return_var > 0) {
-			throw new \Exception(implode(PHP_EOL, $output));
-		}
 		// remove temp folder
-		$this->appcontext->runUser(
-			"v-delete-fs-file",
-			[$installationTarget->getDocRoot("install.php")],
-			$status
-		);
-
+		$this->appcontext->deleteFile($installationTarget->getDocRoot("install.php"));
 		$this->cleanup();
 
-		return $status->code === 0;
+		return true;
 	}
 }
