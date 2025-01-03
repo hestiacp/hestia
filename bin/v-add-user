@@ -110,6 +110,7 @@ setfacl -m "g:hestia-users:---" "$HOMEDIR/$user"
 
 # Building directory tree
 mkdir $HOMEDIR/$user/conf
+chmod o+x $HOMEDIR/$user/conf
 
 if [ -n "$WEB_SYSTEM" ]; then
 	mkdir $HOMEDIR/$user/conf/web $HOMEDIR/$user/web $HOMEDIR/$user/tmp
