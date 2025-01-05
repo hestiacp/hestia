@@ -6,10 +6,13 @@ namespace Hestia\System;
 use Exception;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use function array_unshift;
 use function chmod;
 use function Hestiacp\quoteshellarg\quoteshellarg;
+use function is_file;
 use function trigger_error;
 use function unlink;
+use const DIRECTORY_SEPARATOR;
 
 class HestiaApp {
 	/** @var string[] */
@@ -23,35 +26,30 @@ class HestiaApp {
 
 	public function addDirectory(string $path): void
 	{
-		$status = null;
+		$result = $this->runUser("v-add-fs-directory", [$path]);
 
-		$this->runUser(
-			"v-add-fs-directory",
-			[$path],
-			$status,
-		);
-
-		if ($status->code !== 0) {
-			throw new RuntimeException(
-				sprintf('Failed to add directory "%s"', $path)
-			);
+		if ($result->exitCode !== 0) {
+			throw new RuntimeException(sprintf('Failed to add directory "%s"', $path));
 		}
 	}
 
 	public function copyDirectory(string $fromPath, string $toPath): void
 	{
-		$status = null;
+		$result = $this->runUser("v-copy-fs-directory", [$fromPath, $toPath]);
 
-		$this->runUser(
-			"v-copy-fs-directory",
-			[$fromPath, $toPath],
-			$status,
-		);
-
-		if ($status->code !== 0) {
+		if ($result->exitCode !== 0) {
 			throw new RuntimeException(
 				sprintf('Failed to copy directory "%s" to "%s"', $fromPath, $toPath)
 			);
+		}
+	}
+
+	public function deleteDirectory(string $path): void
+	{
+		$result = $this->runUser("v-delete-fs-directory", [$path]);
+
+		if ($result->exitCode !== 0) {
+			throw new RuntimeException(sprintf('Failed to remove directory "%s"', $path));
 		}
 	}
 
@@ -69,22 +67,16 @@ class HestiaApp {
 
 		chmod($tmpFile, 0644);
 
-		$this->runUser("v-copy-fs-file", [$tmpFile, $path], $result);
+		$this->runUser("v-copy-fs-file", [$tmpFile, $path]);
 
 		unlink($tmpFile);
 	}
 
 	public function moveFile(string $fromPath, string $toPath): void
 	{
-		$status = null;
+		$result = $this->runUser("v-move-fs-file", [$fromPath, $toPath]);
 
-		$this->runUser(
-			"v-move-fs-file",
-			[$fromPath, $toPath],
-			$status,
-		);
-
-		if ($status->code !== 0) {
+		if ($result->exitCode !== 0) {
 			throw new RuntimeException(
 				sprintf('Failed to move file "%s" to "%s"', $fromPath, $toPath)
 			);
@@ -93,15 +85,9 @@ class HestiaApp {
 
 	public function changeFilePermissions(string $filePath, string $permission): void
 	{
-		$status = null;
+		$result = $this->runUser("v-change-fs-file-permission", [$filePath, $permission]);
 
-		$this->runUser(
-			"v-change-fs-file-permission",
-			[$filePath, $permission],
-			$status,
-		);
-
-		if ($status->code !== 0) {
+		if ($result->exitCode !== 0) {
 			throw new RuntimeException(
 				sprintf('Failed to change file "%s" permissions to "%s"', $filePath, $permission)
 			);
@@ -110,15 +96,9 @@ class HestiaApp {
 
 	public function deleteFile(string $filePath): void
 	{
-		$status = null;
+		$result = $this->runUser("v-delete-fs-file", [$filePath]);
 
-		$this->runUser(
-			"v-delete-fs-file",
-			[$filePath],
-			$status,
-		);
-
-		if ($status->code !== 0) {
+		if ($result->exitCode !== 0) {
 			throw new RuntimeException(sprintf('Failed to delete file "%s"', $filePath));
 		}
 	}
@@ -149,113 +129,49 @@ class HestiaApp {
 		}
 	}
 
-	public function runUser(string $cmd, array $args, &$cmd_result = null): bool {
-		return $this->run($cmd, [$this->user(), $args], $cmd_result);
+	public function runComposer($phpVersion, $args): HestiaCommandResult {
+		$this->runUser("v-add-user-composer", []);
+
+		$composerBin = $this->getUserHomeDir() . "/.composer/composer";
+
+		return $this->runPHP($phpVersion, $composerBin, $args);
 	}
 
-	public function installComposer($version) {
-		exec("curl https://composer.github.io/installer.sig", $output);
+	public function runWp($phpVersion, $args): HestiaCommandResult {
+		$this->runUser("v-add-user-wp-cli", []);
 
-		$signature = implode(PHP_EOL, $output);
-		if (empty($signature)) {
-			throw new Exception("Error reading composer signature");
-		}
+		$wpCliBin = $this->getUserHomeDir() . "/.wp-cli/wp";
 
-		$composer_setup =
-			self::TMPDIR_DOWNLOADS . DIRECTORY_SEPARATOR . "composer-setup-" . $signature . ".php";
-
-		exec(
-			"wget https://getcomposer.org/installer --quiet -O " . quoteshellarg($composer_setup),
-			$output,
-			$return_code,
-		);
-		if ($return_code !== 0) {
-			throw new Exception("Error downloading composer");
-		}
-
-		if ($signature !== hash_file("sha384", $composer_setup)) {
-			unlink($composer_setup);
-			throw new Exception("Invalid composer signature");
-		}
-
-		$install_folder = $this->getUserHomeDir() . DIRECTORY_SEPARATOR . ".composer";
-
-		if (!file_exists($install_folder)) {
-			exec(HESTIA_CMD . "v-rebuild-user " . $this->user(), $output, $return_code);
-			if ($return_code !== 0) {
-				throw new Exception("Unable to rebuild user");
-			}
-		}
-
-		$this->runUser(
-			"v-run-cli-cmd",
-			[
-				"/usr/bin/php",
-				$composer_setup,
-				"--quiet",
-				"--install-dir=" . $install_folder,
-				"--filename=composer",
-				"--$version",
-			],
-			$status,
-		);
-
-		unlink($composer_setup);
-
-		if ($status->code !== 0) {
-			throw new Exception("Error installing composer");
-		}
+		return $this->runPHP($phpVersion, $wpCliBin, $args);
 	}
 
-	public function updateComposer($version) {
-		$this->runUser("v-run-cli-cmd", ["composer", "selfupdate", "--$version"]);
+	public function runPHP(string $phpVersion, string $command, array $arguments): HestiaCommandResult
+	{
+		$phpCommand = [
+			"/usr/bin/php" . $phpVersion,
+			$command,
+			...$arguments,
+		];
+
+		$result = $this->runUser("v-run-cli-cmd", $phpCommand);
+
+		if ($result->exitCode !== 0) {
+			throw new RuntimeException(
+				sprintf('Failed to run php command "%s"', $result->command)
+			);
+		}
+
+		return $result;
 	}
 
-	public function runComposer($args, &$cmd_result = null, $data = []): bool {
-		$composer =
-			$this->getUserHomeDir() .
-			DIRECTORY_SEPARATOR .
-			".composer" .
-			DIRECTORY_SEPARATOR .
-			"composer";
-		if (!is_file($composer)) {
-			$this->installComposer($data["version"]);
-		} else {
-			$this->updateComposer($data["version"]);
-		}
-		if (empty($data["php_version"])) {
-			$data["php_version"] = "";
-		}
-		if (!empty($args) && is_array($args)) {
-			array_unshift($args, "php" . $data["php_version"], $composer);
-		} else {
-			$args = ["php" . $data["php_version"], $composer, $args];
-		}
-
-		return $this->runUser("v-run-cli-cmd", $args, $cmd_result);
-	}
-
-	public function runWp($args, &$cmd_result = null): bool {
-		$wp =
-			$this->getUserHomeDir() . DIRECTORY_SEPARATOR . ".wp-cli" . DIRECTORY_SEPARATOR . "wp";
-		if (!is_file($wp)) {
-			$this->runUser("v-add-user-wp-cli", []);
-		} else {
-			$this->runUser("v-run-cli-cmd", [$wp, "cli", "update", "--yes"]);
-		}
-		array_unshift($args, $wp);
-
-		return $this->runUser("v-run-cli-cmd", $args, $cmd_result);
-	}
-
-	// Logged in user
-	public function realuser(): string {
-		return $_SESSION["user"];
+	public function runUser(string $cmd, array $args): HestiaCommandResult {
+		return $this->run($cmd, [$this->user(), ...$args]);
 	}
 
 	// Effective user
 	public function user(): string {
-		$user = $this->realuser();
+		$user = $_SESSION["user"];
+
 		if ($_SESSION["userContext"] === "admin" && !empty($_SESSION["look"])) {
 			$user = $_SESSION["look"];
 		}
@@ -272,22 +188,18 @@ class HestiaApp {
 	}
 
 	public function userOwnsDomain(string $domain): bool {
-		return $this->runUser("v-list-web-domain", [$domain, "json"]);
+		$result = $this->runUser("v-list-web-domain", [$domain, "json"]);
+
+		return $result->exitCode === 0;
 	}
 
-	public function checkDatabaseLimit() {
-		$status = $this->runUser("v-list-user", ["json"], $result);
-		$result->json[$this->user()];
-		if ($result->json[$this->user()]["DATABASES"] != "unlimited") {
-			if (
-				$result->json[$this->user()]["DATABASES"] -
-					$result->json[$this->user()]["U_DATABASES"] <
-				1
-			) {
-				return false;
-			}
-		}
-		return true;
+	public function checkDatabaseLimit(): bool {
+		$result = $this->runUser("v-list-user", ["json"]);
+
+		$userInfo = $result->getOutputJson()[$this->user()];
+
+		return $userInfo["DATABASES"] === "unlimited"
+			|| ($userInfo["DATABASES"] - $userInfo["U_DATABASES"]) < 1;
 	}
 	public function databaseAdd(
 		string $dbname,
@@ -309,7 +221,7 @@ class HestiaApp {
 			$dbhost,
 			$charset,
 		]);
-		if (!$status) {
+		if ($status->exitCode !== 0) {
 			$this->errors[] = _("Unable to add database!");
 		}
 		unlink($v_password);
@@ -317,19 +229,19 @@ class HestiaApp {
 	}
 
 	public function getCurrentBackendTemplate(string $domain) {
-		$status = $this->runUser("v-list-web-domain", [$domain, "json"], $return_message);
-		$version = $return_message->json[$domain]["BACKEND"];
+		$result = $this->runUser("v-list-web-domain", [$domain, "json"]);
+		$version = $result->getOutputJson()[$domain]["BACKEND"];
 		if (!empty($version)) {
 			if ($version != "default") {
 				$test = preg_match("/^.*PHP-([0-9])\_([0-9])/", $version, $match);
 				return $match[1] . "." . $match[2];
 			} else {
-				$supported = $this->run("v-list-sys-php", "json", $result);
-				return $result->json[0];
+				$result = $this->run("v-list-sys-php", ["json"]);
+				return $result->getOutputJson()[0];
 			}
 		} else {
-			$supported = $this->run("v-list-sys-php", "json", $result);
-			return $result->json[0];
+			$result = $this->run("v-list-sys-php", ["json"]);
+			return $result->getOutputJson()[0];
 		}
 	}
 
@@ -342,8 +254,8 @@ class HestiaApp {
 
 	public function listSuportedPHP() {
 		if (!$this->phpsupport) {
-			$status = $this->run("v-list-sys-php", "json", $result);
-			$this->phpsupport = $result->json;
+			$result = $this->run("v-list-sys-php", ["json"]);
+			$this->phpsupport = $result->getOutputJson();
 		}
 		return $this->phpsupport;
 	}
@@ -375,23 +287,17 @@ class HestiaApp {
 
 	public function getWebDomain(string $domainName): WebDomain
 	{
-		$result = null;
+		$result = $this->runUser("v-list-web-domain", [$domainName, "json"]);
 
-		$this->runUser(
-			"v-list-web-domain",
-			[$domainName, "json"],
-			$result,
-		);
-
-		if ($result === null && $result->code !== 0) {
+		if ($result->exitCode !== 0) {
 			throw new Exception("Cannot find domain for user");
 		}
 
 		return new WebDomain(
 			$domainName,
 			Util::join_paths($this->getUserHomeDir(), "web", $domainName),
-			filter_var($result->json[$domainName]["IP"], FILTER_VALIDATE_IP),
-			$result->json[$domainName]["SSL"] === "yes"
+			filter_var($result->getOutputJson()[$domainName]["IP"], FILTER_VALIDATE_IP),
+			$result->getOutputJson()[$domainName]["SSL"] === "yes"
 		);
 	}
 
@@ -475,7 +381,7 @@ class HestiaApp {
 		$this->cleanupTmpDir();
 	}
 
-	private function run(string $cmd, array $args, &$cmd_result = null): HestiaCommandResult
+	private function run(string $cmd, array $args): HestiaCommandResult
 	{
 		$cli_script = realpath(HESTIA_DIR_BIN . $cmd);
 
@@ -483,7 +389,6 @@ class HestiaApp {
 			'/usr/bin/sudo',
 			$cli_script,
 			...$args,
-			'2>&1',
 		];
 
 		$process = new Process($command);

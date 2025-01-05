@@ -3,7 +3,7 @@
 namespace Hestia\WebApp\Installers\Drupal;
 
 use Hestia\WebApp\Installers\BaseSetup;
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use function sprintf;
 
 class DrupalSetup extends BaseSetup {
 	protected $appInfo = [
@@ -41,9 +41,8 @@ class DrupalSetup extends BaseSetup {
 		$installationTarget = $this->getInstallationTarget();
 
 		$this->appcontext->runComposer(
+			$options["php_version"],
 			["require", "-d " . $installationTarget->getDocRoot(), "drush/drush"],
-			$status2,
-			["version" => 2, "php_version" => $options["php_version"]],
 		);
 
 		$htaccessContents = '
@@ -57,35 +56,28 @@ class DrupalSetup extends BaseSetup {
 			$htaccessContents,
 		);
 
-		$this->appcontext->runUser(
-			"v-run-cli-cmd",
+		$databaseUrl = sprintf(
+			'mysql://%s:%s@%s:3306/%s',
+			$this->appcontext->user() . "_" . $options["database_user"],
+			$options["database_password"],
+			$options["database_host"],
+			$this->appcontext->user() . "_" . $options["database_name"],
+		);
+
+		$this->appcontext->runPHP(
+			$options["php_version"],
+			$installationTarget->getDocRoot("/vendor/drush/drush/drush.php"),
 			[
-				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($installationTarget->getDocRoot("/vendor/drush/drush/drush")),
 				"site-install",
 				"standard",
-				"--db-url=" .
-				quoteshellarg(
-					"mysql://" .
-						$this->appcontext->user() .
-						"_" .
-						$options["database_user"] .
-						":" .
-						$options["database_password"] .
-						"@" .
-						$options["database_host"] .
-						":3306/" .
-						$this->appcontext->user() .
-						"_" .
-						$options["database_name"],
-				),
-				"--account-name=" . quoteshellarg($options["username"]),
-				"--account-pass=" . quoteshellarg($options["password"]),
+				"--db-url=" . $databaseUrl,
+				"--account-name=" . $options["username"],
+				"--account-pass=" . $options["password"],
 				"--site-name=Drupal",
-				"--site-mail=" . quoteshellarg($options["email"]),
-			],
-			$status,
+				"--site-mail=" . $options["email"],
+			]
 		);
-		return $status->code === 0;
+
+		return true;
 	}
 }

@@ -45,13 +45,6 @@ class ThirtyBeesSetup extends BaseSetup {
 
 		$installationTarget = $this->getInstallationTarget();
 
-		try {
-			$this->retrieveResources($options);
-		} catch (\Exception $e) {
-			// Registrar el error pero continuar con la instalación
-			error_log("Error durante la descarga o extracción: " . $e->getMessage());
-		}
-
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
 			[

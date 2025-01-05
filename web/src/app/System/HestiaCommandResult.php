@@ -21,8 +21,8 @@ class HestiaCommandResult {
 	){
 	}
 
-	public function getOutputJson(): string
+	public function getOutputJson(): array
 	{
-		return json_decode($this->output, true);
+		return (array) json_decode($this->output, true, 512, JSON_THROW_ON_ERROR);
 	}
 }

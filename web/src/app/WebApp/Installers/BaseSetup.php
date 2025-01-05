@@ -34,11 +34,7 @@ abstract class BaseSetup implements InstallerInterface {
 				throw new Exception("Invalid install folder");
 			}
 			if (!is_dir($this->getDocRoot($installationDirectory))) {
-				$this->appcontext->runUser(
-					"v-add-fs-directory",
-					[$this->getDocRoot($installationDirectory)],
-					$result,
-				);
+				$this->appcontext->addDirectory($this->getDocRoot($installationDirectory));
 			}
 			$this->installationDirectory = $installationDirectory;
 		}
@@ -105,33 +101,41 @@ abstract class BaseSetup implements InstallerInterface {
 	public function retrieveResources($options) {
 		foreach ($this->getConfig("resources") as $res_type => $res_data) {
 			if (!empty($res_data["dst"]) && is_string($res_data["dst"])) {
-				$resource_destination = $this->getDocRoot($res_data["dst"]);
+				$destinationPath = $this->getDocRoot($res_data["dst"]);
 			} else {
-				$resource_destination = $this->getDocRoot($this->extractsubdir);
+				$destinationPath = $this->getDocRoot($this->extractsubdir);
 			}
 
 			if ($res_type === "composer") {
-				$res_data["php_version"] = $options["php_version"];
-				new ComposerResource(
-					$this->appcontext,
-					$res_data,
-					$resource_destination,
-					$options["php_version"],
+				$this->appcontext->runComposer(
+					$options['php_version'],
+					[
+						"create-project",
+						"--no-progress",
+						"--prefer-dist",
+						$res_data["src"],
+						"-d " . dirname($destinationPath),
+						basename($destinationPath),
+					],
 				);
 			} elseif ($res_type === "wp") {
-				new WpResource(
-					$this->appcontext,
-					$res_data,
-					$resource_destination,
-					$options,
-					$this->info(),
+				$this->appcontext->runWp(
+					$options['php_version'],
+					[
+						"core",
+						"download",
+						"--locale=" . $options["language"],
+						"--version=" . $this->info()["version"],
+						"--path=" . $destinationPath,
+					],
 				);
 			} else {
-				$this->appcontext->archiveExtract($res_data["src"], $resource_destination, 1);
+				$this->appcontext->archiveExtract($res_data["src"], $destinationPath, 1);
 			}
 		}
 		return true;
 	}
+
 	public function setup(array $options = null) {
 		if ($_SESSION["WEB_SYSTEM"] == "nginx") {
 			if (isset($this->config["server"]["nginx"]["template"])) {
@@ -160,7 +164,7 @@ abstract class BaseSetup implements InstallerInterface {
 				if (!$php_version) {
 					throw new Exception("Required PHP version is not supported");
 				}
-				//convert from x.x to PHP-x_x	to accepted..
+				//convert from x.x to PHP-x_x to accepted.
 				$this->appcontext->changeBackendTemplate(
 					$this->domain,
 					"PHP-" . str_replace(".", "_", $options["php_version"]),
@@ -170,19 +174,16 @@ abstract class BaseSetup implements InstallerInterface {
 	}
 
 	public function install(array $options = null) {
-		$this->appcontext->runUser("v-delete-fs-file", [$this->getDocRoot("robots.txt")]);
-		$this->appcontext->runUser("v-delete-fs-file", [$this->getDocRoot("index.html")]);
+		$this->appcontext->deleteFile($this->getDocRoot("robots.txt"));
+		$this->appcontext->deleteFile($this->getDocRoot("index.html"));
+
 		return $this->retrieveResources($options);
 	}
 
 	public function cleanup() {
 		// Remove temporary folder
 		if (!empty($this->extractsubdir)) {
-			$this->appcontext->runUser(
-				"v-delete-fs-directory",
-				[$this->getDocRoot($this->extractsubdir)],
-				$result,
-			);
+			$this->appcontext->deleteDirectory($this->getDocRoot($this->extractsubdir));
 		}
 	}
 
@@ -195,8 +196,9 @@ abstract class BaseSetup implements InstallerInterface {
 		if (file_put_contents($tmp_file, $data) > 0) {
 			chmod($tmp_file, 0644);
 			$user_tmp_file = Util::join_paths($this->appcontext->getUserHomeDir(), $tmp_file);
-			$this->appcontext->runUser("v-copy-fs-file", [$tmp_file, $user_tmp_file], $result);
-			unlink($tmp_file);
+
+			$this->appcontext->moveFile($tmp_file, $user_tmp_file);
+
 			return $user_tmp_file;
 		}
 
