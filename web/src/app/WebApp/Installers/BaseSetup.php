@@ -171,6 +171,12 @@ abstract class BaseSetup implements InstallerInterface {
 				);
 			}
 		}
+		if (isset($this->config["server"]["document_root"])) {
+			$this->appcontext->changeWebDocumentRoot(
+				$this->domain,
+				$this->config["server"]["document_root"],
+			);
+		}
 	}
 
 	public function install(array $options = null) {

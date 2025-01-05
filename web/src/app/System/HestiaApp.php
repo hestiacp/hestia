@@ -246,10 +246,17 @@ class HestiaApp {
 	}
 
 	public function changeWebTemplate(string $domain, string $template) {
-		$status = $this->runUser("v-change-web-domain-tpl", [$domain, $template]);
+		$this->runUser("v-change-web-domain-tpl", [$domain, $template]);
 	}
+
+	public function changeWebDocumentRoot(string $domain, string $docroot) {
+		$docroot = rtrim($docroot, "/");
+
+		$this->runUser("v-change-web-domain-docroot", [$domain, $domain, $docroot, 'yes']);
+	}
+
 	public function changeBackendTemplate(string $domain, string $template) {
-		$status = $this->runUser("v-change-web-domain-backend-tpl", [$domain, $template]);
+		$this->runUser("v-change-web-domain-backend-tpl", [$domain, $template]);
 	}
 
 	public function listSuportedPHP() {

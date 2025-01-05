@@ -43,6 +43,7 @@ class DolibarrSetup extends BaseSetup {
 			"php" => [
 				"supported" => ["7.4", "8.0", "8.1", "8.2", "8.3"],
 			],
+			"document_root" => "htdocs",
 		],
 	];
 
