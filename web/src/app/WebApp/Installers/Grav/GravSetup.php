@@ -29,7 +29,7 @@ class GravSetup extends BaseSetup {
 				"template" => "grav",
 			],
 			"php" => [
-				"supported" => ["7.4", "8.0", "8.1"],
+				"supported" => ["7.4", "8.0", "8.1". "8.2", "8.3"],
 			],
 		],
 	];
@@ -43,20 +43,16 @@ class GravSetup extends BaseSetup {
 		if ($options["admin"] == true) {
 			chdir($installationTarget->getDocRoot());
 
-			$this->appcontext->runUser(
-				"v-run-cli-cmd",
-				[
-					"/usr/bin/php" . $options["php_version"],
-					$installationTarget->getDocRoot("/bin/gpm"),
-					"install admin",
-				],
-				$status,
+			$this->appcontext->runPHP(
+				$options["php_version"],
+				$installationTarget->getDocRoot("/bin/gpm"),
+				["install admin"],
 			);
-			$this->appcontext->runUser(
-				"v-run-cli-cmd",
+
+			$this->appcontext->runPHP(
+				$options["php_version"],
+				$installationTarget->getDocRoot("/bin/plugin"),
 				[
-					"/usr/bin/php" . $options["php_version"],
-					$installationTarget->getDocRoot("/bin/plugin"),
 					"login new-user",
 					"-u " . $options["username"],
 					"-p " . $options["password"],
@@ -65,11 +61,9 @@ class GravSetup extends BaseSetup {
 					"-N " . $options["username"],
 					"-l en",
 				],
-				$status,
 			);
-			return $status->code === 0;
-		} else {
-			return true;
 		}
+
+		return true;
 	}
 }
