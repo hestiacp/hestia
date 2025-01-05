@@ -3,8 +3,13 @@
 declare(strict_types=1);
 
 namespace Hestia\System;
+use Exception;
 use RuntimeException;
+use Symfony\Component\Process\Process;
+use function chmod;
 use function Hestiacp\quoteshellarg\quoteshellarg;
+use function trigger_error;
+use function unlink;
 
 class HestiaApp {
 	/** @var string[] */
@@ -48,6 +53,25 @@ class HestiaApp {
 				sprintf('Failed to copy directory "%s" to "%s"', $fromPath, $toPath)
 			);
 		}
+	}
+
+	public function createFile(string $path, string $contents): void
+	{
+		$tmpFile = tempnam("/tmp", "hst.");
+
+		if (!$tmpFile) {
+			throw new RuntimeException("Error creating temp file");
+		}
+
+		if (!file_put_contents($tmpFile, $contents)) {
+			throw new RuntimeException("Error writing to temp file");
+		}
+
+		chmod($tmpFile, 0644);
+
+		$this->runUser("v-copy-fs-file", [$tmpFile, $path], $result);
+
+		unlink($tmpFile);
 	}
 
 	public function moveFile(string $fromPath, string $toPath): void
@@ -125,13 +149,8 @@ class HestiaApp {
 		}
 	}
 
-	public function runUser(string $cmd, $args, &$cmd_result = null): bool {
-		if (!empty($args) && is_array($args)) {
-			array_unshift($args, $this->user());
-		} else {
-			$args = [$this->user(), $args];
-		}
-		return $this->run($cmd, $args, $cmd_result);
+	public function runUser(string $cmd, array $args, &$cmd_result = null): bool {
+		return $this->run($cmd, [$this->user(), $args], $cmd_result);
 	}
 
 	public function installComposer($version) {
@@ -139,7 +158,7 @@ class HestiaApp {
 
 		$signature = implode(PHP_EOL, $output);
 		if (empty($signature)) {
-			throw new \Exception("Error reading composer signature");
+			throw new Exception("Error reading composer signature");
 		}
 
 		$composer_setup =
@@ -151,12 +170,12 @@ class HestiaApp {
 			$return_code,
 		);
 		if ($return_code !== 0) {
-			throw new \Exception("Error downloading composer");
+			throw new Exception("Error downloading composer");
 		}
 
 		if ($signature !== hash_file("sha384", $composer_setup)) {
 			unlink($composer_setup);
-			throw new \Exception("Invalid composer signature");
+			throw new Exception("Invalid composer signature");
 		}
 
 		$install_folder = $this->getUserHomeDir() . DIRECTORY_SEPARATOR . ".composer";
@@ -164,7 +183,7 @@ class HestiaApp {
 		if (!file_exists($install_folder)) {
 			exec(HESTIA_CMD . "v-rebuild-user " . $this->user(), $output, $return_code);
 			if ($return_code !== 0) {
-				throw new \Exception("Unable to rebuild user");
+				throw new Exception("Unable to rebuild user");
 			}
 		}
 
@@ -184,7 +203,7 @@ class HestiaApp {
 		unlink($composer_setup);
 
 		if ($status->code !== 0) {
-			throw new \Exception("Error installing composer");
+			throw new Exception("Error installing composer");
 		}
 	}
 
@@ -242,7 +261,7 @@ class HestiaApp {
 		}
 
 		if (strpos($user, DIRECTORY_SEPARATOR) !== false) {
-			throw new \Exception("illegal characters in username");
+			throw new Exception("illegal characters in username");
 		}
 		return $user;
 	}
@@ -365,7 +384,7 @@ class HestiaApp {
 		);
 
 		if ($result === null && $result->code !== 0) {
-			throw new \Exception("Cannot find domain for user");
+			throw new Exception("Cannot find domain for user");
 		}
 
 		return new WebDomain(
@@ -420,14 +439,14 @@ class HestiaApp {
 
 	public function archiveExtract(string $src, string $path, $skip_components = null) {
 		if (empty($path)) {
-			throw new \Exception("Error extracting archive: missing target folder");
+			throw new Exception("Error extracting archive: missing target folder");
 		}
 
 		if (realpath($src)) {
 			$archive_file = $src;
 		} else {
 			if (!$this->downloadUrl($src, null, $download_result)) {
-				throw new \Exception("Error downloading archive");
+				throw new Exception("Error downloading archive");
 			}
 			$archive_file = $download_result->file;
 		}
@@ -456,38 +475,31 @@ class HestiaApp {
 		$this->cleanupTmpDir();
 	}
 
-	private function run(string $cmd, $args, &$cmd_result = null): bool {
+	private function run(string $cmd, array $args, &$cmd_result = null): HestiaCommandResult
+	{
 		$cli_script = realpath(HESTIA_DIR_BIN . $cmd);
-		if (!str_starts_with((string) $cli_script, HESTIA_DIR_BIN)) {
-			$errstr = "$cmd is trying to traverse outside of " . HESTIA_DIR_BIN;
-			trigger_error($errstr);
-			throw new \Exception($errstr);
-		}
-		$cli_script = "/usr/bin/sudo " . quoteshellarg($cli_script);
 
-		$cli_arguments = "";
-		if (!empty($args) && is_array($args)) {
-			foreach ($args as $arg) {
-				$cli_arguments .= quoteshellarg((string) $arg) . " ";
-			}
-		} else {
-			$cli_arguments = quoteshellarg($args);
-		}
+		$command = [
+			'/usr/bin/sudo',
+			$cli_script,
+			...$args,
+			'2>&1',
+		];
 
-		exec($cli_script . " " . $cli_arguments . " 2>&1", $output, $exit_code);
+		$process = new Process($command);
+		$process->run();
 
-		$result["code"] = $exit_code;
-		$result["args"] = $cli_arguments;
-		$result["raw"] = $output;
-		$result["text"] = implode(PHP_EOL, $output);
-		$result["json"] = json_decode($result["text"], true);
-		$cmd_result = (object) $result;
-		if ($exit_code > 0) {
+		if (!$process->isSuccessful()) {
 			//log error message in nginx-error.log
-			trigger_error($cli_script . " " . $cli_arguments . " | " . $result["text"]);
+			trigger_error($process->getCommandLine() . " | " . $process->getOutput());
 			//throw exception if command fails
-			throw new \Exception($result["text"]);
+			throw new RuntimeException($process->getErrorOutput());
 		}
-		return $exit_code === 0;
+
+		return new HestiaCommandResult(
+			$process->getCommandLine(),
+			$process->getExitCode(),
+			$process->getOutput(),
+		);
 	}
 }

@@ -79,6 +79,18 @@ class WordPressSetup extends BaseSetup {
 			[$installationTarget->getDocRoot("wp-config-sample.php")],
 			$result,
 		);
+
+		$this->appcontext->runWp(
+			[
+				"core",
+				"install",
+				"--locale=" . $options["language"],
+				"--version=" . $appinfo["version"],
+				"--path=" . $destination,
+			],
+			$status,
+		);
+
 		foreach ($result->raw as $line_num => $line) {
 			if ('$table_prefix =' === substr($line, 0, 15)) {
 				$result->raw[$line_num] =
