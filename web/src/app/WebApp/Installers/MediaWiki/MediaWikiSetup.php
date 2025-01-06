@@ -2,8 +2,7 @@
 
 namespace Hestia\WebApp\Installers\MediaWiki;
 
-use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class MediaWikiSetup extends BaseSetup {
@@ -15,7 +14,6 @@ class MediaWikiSetup extends BaseSetup {
 		"thumbnail" => "MediaWiki-2020-logo.svg", //Max size is 300px by 300px
 	];
 
-	protected $appname = "mediawiki";
 	protected $extractsubdir = "/tmp-mediawiki";
 
 	protected $config = [
@@ -44,20 +42,11 @@ class MediaWikiSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
-		//check if ssl is enabled
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
-
-		if ($status->code !== 0) {
-			throw new \Exception("Cannot list domain");
-		}
-
-		$sslEnabled = $status->json[$this->domain]["SSL"] == "no" ? 0 : 1;
-
-		$webDomain = ($sslEnabled ? "https://" : "http://") . $this->domain;
+		$installationTarget = $this->getInstallationTarget();
 
 		$this->appcontext->runUser(
 			"v-copy-fs-directory",
-			[$this->getDocRoot($this->extractsubdir . "/mediawiki-1.42.3/."), $this->getDocRoot()],
+			[$installationTarget->getDocRoot($this->extractsubdir . "/mediawiki-1.42.3/."), $installationTarget->getDocRoot()],
 			$result,
 		);
 
@@ -65,7 +54,7 @@ class MediaWikiSetup extends BaseSetup {
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("maintenance/install.php")),
+				quoteshellarg($installationTarget->getDocRoot("maintenance/install.php")),
 				"--dbserver=" . quoteshellarg($options["database_host"]),
 				"--dbname=" .
 				quoteshellarg($this->appcontext->user() . "_" . $options["database_name"]),
@@ -75,7 +64,7 @@ class MediaWikiSetup extends BaseSetup {
 				"--dbuser=" .
 				quoteshellarg($this->appcontext->user() . "_" . $options["database_user"]),
 				"--dbpass=" . quoteshellarg($options["database_password"]),
-				"--server=" . quoteshellarg($webDomain),
+				"--server=" . quoteshellarg($installationTarget->getUrl()),
 				"--scriptpath=", // must NOT be /
 				"--lang=" . quoteshellarg($options["language"]),
 				"--pass=" . quoteshellarg($options["admin_password"]),

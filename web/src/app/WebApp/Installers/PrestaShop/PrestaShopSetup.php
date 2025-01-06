@@ -1,8 +1,8 @@
 <?php
 
-namespace Hestia\WebApp\Installers\Prestashop;
+namespace Hestia\WebApp\Installers\PrestaShop;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class PrestaShopSetup extends BaseSetup {
@@ -14,7 +14,6 @@ class PrestaShopSetup extends BaseSetup {
 		"thumbnail" => "prestashop-thumb.png",
 	];
 
-	protected $appname = "prestashop";
 	protected $extractsubdir = "/tmp-prestashop";
 
 	protected $config = [
@@ -44,32 +43,20 @@ class PrestaShopSetup extends BaseSetup {
 	public function install(array $options = null): bool {
 		parent::install($options);
 		parent::setup($options);
+
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->archiveExtract(
-			$this->getDocRoot($this->extractsubdir . "/prestashop.zip"),
-			$this->getDocRoot(),
+			$installationTarget->getDocRoot($this->extractsubdir . "/prestashop.zip"),
+			$installationTarget->getDocRoot(),
 		);
-		//check if ssl is enabled
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
 
-		if ($status->code !== 0) {
-			throw new \Exception("Cannot list domain");
-		}
-
-		if ($status->json[$this->domain]["SSL"] == "no") {
-			$ssl_enabled = 0;
-		} else {
-			$ssl_enabled = 1;
-		}
-
-		$php_version = $this->appcontext->getSupportedPHP(
-			$this->config["server"]["php"]["supported"],
-		);
 
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("/install/index_cli.php")),
+				quoteshellarg($installationTarget->getDocRoot("/install/index_cli.php")),
 				"--db_server=" . quoteshellarg($options["database_host"]),
 				"--db_user=" .
 				quoteshellarg($this->appcontext->user() . "_" . $options["database_user"]),
@@ -80,14 +67,17 @@ class PrestaShopSetup extends BaseSetup {
 				"--lastname=" . quoteshellarg($options["prestashop_account_last_name"]),
 				"--password=" . quoteshellarg($options["prestashop_account_password"]),
 				"--email=" . quoteshellarg($options["prestashop_account_email"]),
-				"--domain=" . quoteshellarg($this->domain),
-				"--ssl=" . (int) $ssl_enabled,
+				"--domain=" . quoteshellarg($installationTarget->domainName),
+				"--ssl=" . $installationTarget->isSslEnabled ? 1 : 0,
 			],
 			$status,
 		);
 
 		// remove install folder
-		$this->appcontext->runUser("v-delete-fs-directory", [$this->getDocRoot("/install")]);
+		$this->appcontext->runUser(
+			"v-delete-fs-directory",
+			[$installationTarget->getDocRoot("/install")],
+		);
 		$this->cleanup();
 		return $status->code === 0;
 	}

@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace Hestia\WebApp;
 
 use Hestia\System\HestiaApp;
+use function array_filter;
+use function explode;
+use function var_dump;
 
 class AppWizard {
 	private $domain;
@@ -36,12 +39,19 @@ class AppWizard {
 	}
 
 	public function isDomainRootClean() {
-		$this->appcontext->runUser("v-run-cli-cmd", ["ls", $this->appsetup->getDocRoot()], $status);
-		if ($status->code !== 0) {
+		$installationTarget = $this->appsetup->getInstallationTarget();
+
+		$result = $this->appcontext->runUser(
+			"v-run-cli-cmd",
+			["ls", $installationTarget->getDocRoot()]
+		);
+
+		if ($result->exitCode !== 0) {
 			throw new \Exception("Cannot list domain files");
 		}
 
-		$files = $status->raw;
+		$files = array_filter(explode('\n', $result->output));
+
 		if (count($files) > 2) {
 			return false;
 		}

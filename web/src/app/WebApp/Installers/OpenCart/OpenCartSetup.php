@@ -1,8 +1,8 @@
 <?php
 
-namespace Hestia\WebApp\Installers\Opencart;
+namespace Hestia\WebApp\Installers\OpenCart;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class OpenCartSetup extends BaseSetup {
@@ -14,7 +14,6 @@ class OpenCartSetup extends BaseSetup {
 		"thumbnail" => "opencart-thumb.png",
 	];
 
-	protected $appname = "opencart";
 	protected $extractsubdir = "/tmp-opencart";
 
 	protected $config = [
@@ -44,41 +43,35 @@ class OpenCartSetup extends BaseSetup {
 		parent::install($options);
 		parent::setup($options);
 
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->runUser(
 			"v-copy-fs-directory",
-			[$this->getDocRoot($this->extractsubdir . "/upload/."), $this->getDocRoot()],
+			[
+				$installationTarget->getDocRoot($this->extractsubdir . "/upload/."),
+				$installationTarget->getDocRoot(),
+			],
 			$result,
 		);
 
 		$this->appcontext->runUser("v-copy-fs-file", [
-			$this->getDocRoot("config-dist.php"),
-			$this->getDocRoot("config.php"),
+			$installationTarget->getDocRoot("config-dist.php"),
+			$installationTarget->getDocRoot("config.php"),
 		]);
 		$this->appcontext->runUser("v-copy-fs-file", [
-			$this->getDocRoot("admin/config-dist.php"),
-			$this->getDocRoot("admin/config.php"),
+			$installationTarget->getDocRoot("admin/config-dist.php"),
+			$installationTarget->getDocRoot("admin/config.php"),
 		]);
 		$this->appcontext->runUser("v-copy-fs-file", [
-			$this->getDocRoot(".htaccess.txt"),
-			$this->getDocRoot(".htaccess"),
+			$installationTarget->getDocRoot(".htaccess.txt"),
+			$installationTarget->getDocRoot(".htaccess"),
 		]);
-		#Check if SSL is enabled
-		$this->appcontext->runUser("v-list-web-domain", [$this->domain, "json"], $status);
-
-		if ($status->code !== 0) {
-			throw new \Exception("Cannot list domain");
-		}
-		if ($status->json[$this->domain]["SSL"] == "no") {
-			$protocol = "http://";
-		} else {
-			$protocol = "https://";
-		}
 
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
 			[
 				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("/install/cli_install.php")),
+				quoteshellarg($installationTarget->getDocRoot("/install/cli_install.php")),
 				"install",
 				"--db_hostname " . quoteshellarg($options["database_host"]),
 				"--db_username " .
@@ -89,7 +82,7 @@ class OpenCartSetup extends BaseSetup {
 				"--username " . quoteshellarg($options["opencart_account_username"]),
 				"--password " . quoteshellarg($options["opencart_account_password"]),
 				"--email " . quoteshellarg($options["opencart_account_email"]),
-				"--http_server " . quoteshellarg($protocol . $this->domain . "/"),
+				"--http_server " . quoteshellarg($installationTarget->getUrl() . "/"),
 			],
 			$status,
 		);
@@ -98,36 +91,57 @@ class OpenCartSetup extends BaseSetup {
 		// - Opencart Nginx template and Apache ".htaccess" forbids acces to /storage folder
 		$this->appcontext->runUser(
 			"v-move-fs-directory",
-			[$this->getDocRoot("system/storage"), $this->getDocRoot()],
+			[
+				$installationTarget->getDocRoot("system/storage"),
+				$installationTarget->getDocRoot(),
+			],
 			$result,
 		);
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
-			["sed", "-i", "s/'storage\//'..\/storage\// ", $this->getDocRoot("config.php")],
+			[
+				"sed",
+				"-i",
+				"s/'storage\//'..\/storage\// ",
+				$installationTarget->getDocRoot("config.php"),
+			],
 			$status,
 		);
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
-			["sed", "-i", "s/'storage\//'..\/storage\// ", $this->getDocRoot("admin/config.php")],
+			[
+				"sed",
+				"-i",
+				"s/'storage\//'..\/storage\// ",
+				$installationTarget->getDocRoot("admin/config.php"),
+			],
 			$status,
 		);
 		$this->appcontext->runUser(
 			"v-run-cli-cmd",
-			["sed", "-i", "s/\^system\/storage\//^\/storage\// ", $this->getDocRoot(".htaccess")],
+			[
+				"sed",
+				"-i",
+				"s/\^system\/storage\//^\/storage\// ",
+				$installationTarget->getDocRoot(".htaccess")
+			],
 			$status,
 		);
 
 		$this->appcontext->runUser("v-change-fs-file-permission", [
-			$this->getDocRoot("config.php"),
+			$installationTarget->getDocRoot("config.php"),
 			"640",
 		]);
 		$this->appcontext->runUser("v-change-fs-file-permission", [
-			$this->getDocRoot("admin/config.php"),
+			$installationTarget->getDocRoot("admin/config.php"),
 			"640",
 		]);
 
 		// remove install folder
-		$this->appcontext->runUser("v-delete-fs-directory", [$this->getDocRoot("/install")]);
+		$this->appcontext->runUser(
+			"v-delete-fs-directory",
+			[$installationTarget->getDocRoot("/install")],
+		);
 		$this->cleanup();
 
 		return $status->code === 0;

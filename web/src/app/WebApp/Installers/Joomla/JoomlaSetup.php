@@ -3,7 +3,7 @@
 namespace Hestia\WebApp\Installers\Joomla;
 
 use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class JoomlaSetup extends BaseSetup {
@@ -15,7 +15,6 @@ class JoomlaSetup extends BaseSetup {
 		"thumbnail" => "joomla_thumb.png",
 	];
 
-	protected $appname = "joomla";
 	protected $config = [
 		"form" => [
 			"site_name" => [
@@ -61,15 +60,11 @@ class JoomlaSetup extends BaseSetup {
 	];
 
 	public function install(array $options = null): bool {
-		$installDir =
-			rtrim($this->getDocRoot(), "/") . "/" . ltrim($options["install_directory"] ?? "", "/");
-		parent::setAppDirInstall($options["install_directory"] ?? "");
+		parent::setInstallationDirectory($options["install_directory"] ?? "");
 		parent::install($options);
 		parent::setup($options);
 
-		if (!is_dir($installDir)) {
-			throw new \Exception("Installation directory does not exist: " . $installDir);
-		}
+		$installationTarget = $this->getInstallationTarget();
 
 		// Database credentials
 		$dbHost = $options["database_host"];
@@ -86,7 +81,7 @@ class JoomlaSetup extends BaseSetup {
 		// Initialize Joomla using the CLI
 		$cliCmd = [
 			"/usr/bin/php",
-			quoteshellarg("$installDir/installation/joomla.php"),
+			quoteshellarg($installationTarget->getDocRoot("/installation/joomla.php")),
 			"install",
 			"--site-name=" . quoteshellarg($siteName),
 			"--admin-user=" . quoteshellarg($adminUsername),

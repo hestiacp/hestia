@@ -2,12 +2,10 @@
 
 namespace Hestia\WebApp\Installers\Drupal;
 
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
-use function Hestiacp\quoteshellarg\quoteshellarg;
+use Hestia\WebApp\Installers\BaseSetup;
+use function sprintf;
 
 class DrupalSetup extends BaseSetup {
-	protected $appname = "drupal";
-
 	protected $appInfo = [
 		"name" => "Drupal",
 		"group" => "cms",
@@ -39,54 +37,47 @@ class DrupalSetup extends BaseSetup {
 	public function install(array $options = null): bool {
 		parent::install($options);
 		parent::setup($options);
+
+		$installationTarget = $this->getInstallationTarget();
+
 		$this->appcontext->runComposer(
-			["require", "-d " . $this->getDocRoot(), "drush/drush"],
-			$status2,
-			["version" => 2, "php_version" => $options["php_version"]],
+			$options["php_version"],
+			["require", "-d " . $installationTarget->getDocRoot(), "drush/drush"],
 		);
 
-		$htaccess_rewrite = '
+		$htaccessContents = '
 <IfModule mod_rewrite.c>
 		RewriteEngine On
 		RewriteRule ^(.*)$ web/$1 [L]
 </IfModule>';
 
-		$tmp_configpath = $this->saveTempFile($htaccess_rewrite);
-		$this->appcontext->runUser(
-			"v-move-fs-file",
-			[$tmp_configpath, $this->getDocRoot(".htaccess")],
-			$result,
+		$this->appcontext->createFile(
+			$installationTarget->getDocRoot(".htaccess"),
+			$htaccessContents,
 		);
 
-		$this->appcontext->runUser(
-			"v-run-cli-cmd",
+		$databaseUrl = sprintf(
+			'mysql://%s:%s@%s:3306/%s',
+			$this->appcontext->user() . "_" . $options["database_user"],
+			$options["database_password"],
+			$options["database_host"],
+			$this->appcontext->user() . "_" . $options["database_name"],
+		);
+
+		$this->appcontext->runPHP(
+			$options["php_version"],
+			$installationTarget->getDocRoot("/vendor/drush/drush/drush.php"),
 			[
-				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($this->getDocRoot("/vendor/drush/drush/drush")),
 				"site-install",
 				"standard",
-				"--db-url=" .
-				quoteshellarg(
-					"mysql://" .
-						$this->appcontext->user() .
-						"_" .
-						$options["database_user"] .
-						":" .
-						$options["database_password"] .
-						"@" .
-						$options["database_host"] .
-						":3306/" .
-						$this->appcontext->user() .
-						"_" .
-						$options["database_name"],
-				),
-				"--account-name=" . quoteshellarg($options["username"]),
-				"--account-pass=" . quoteshellarg($options["password"]),
+				"--db-url=" . $databaseUrl,
+				"--account-name=" . $options["username"],
+				"--account-pass=" . $options["password"],
 				"--site-name=Drupal",
-				"--site-mail=" . quoteshellarg($options["email"]),
-			],
-			$status,
+				"--site-mail=" . $options["email"],
+			]
 		);
-		return $status->code === 0;
+
+		return true;
 	}
 }

@@ -3,7 +3,7 @@
 namespace Hestia\WebApp\Installers\NamelessMC;
 
 use Hestia\System\Util;
-use Hestia\WebApp\Installers\BaseSetup as BaseSetup;
+use Hestia\WebApp\Installers\BaseSetup;
 
 class NamelessMCSetup extends BaseSetup {
 	protected $appInfo = [
@@ -14,7 +14,6 @@ class NamelessMCSetup extends BaseSetup {
 		"thumbnail" => "namelessmc.png",
 	];
 
-	protected $appname = "namelessmc";
 	protected $config = [
 		"form" => [
 			"protocol" => [

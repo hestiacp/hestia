@@ -2,39 +2,46 @@
 
 namespace Hestia\WebApp\Installers;
 
-use Hestia\System\Util;
+use Exception;
 use Hestia\System\HestiaApp;
+use Hestia\System\Util;
+use Hestia\WebApp\InstallationTarget;
 use Hestia\WebApp\InstallerInterface;
-use Hestia\Models\WebDomain;
-
 use Hestia\WebApp\Installers\Resources\ComposerResource;
 use Hestia\WebApp\Installers\Resources\WpResource;
+use function var_dump;
 
 abstract class BaseSetup implements InstallerInterface {
 	protected $appInfo;
 	protected $config;
-	protected $domain;
+	private $domain;
 	protected $extractsubdir;
-	protected $AppDirInstall;
+	protected $installationDirectory = '';
 	protected $appcontext;
 
-	public function setAppDirInstall(string $appDir) {
-		if (!empty($appDir)) {
-			if (strpos(".", $appDir) !== false) {
-				throw new \Exception("Invalid install folder");
+	public function __construct($domain, HestiaApp $appcontext) {
+		if (filter_var($domain, FILTER_VALIDATE_DOMAIN) === false) {
+			throw new Exception("Invalid domain name");
+		}
+
+		$this->domain = $domain;
+		$this->appcontext = $appcontext;
+	}
+
+	public function setInstallationDirectory(string $installationDirectory) {
+		if (!empty($installationDirectory)) {
+			if (strpos(".", $installationDirectory) !== false) {
+				throw new Exception("Invalid install folder");
 			}
-			if (!is_dir($this->getDocRoot($appDir))) {
-				$this->appcontext->runUser(
-					"v-add-fs-directory",
-					[$this->getDocRoot($appDir)],
-					$result,
-				);
+			if (!is_dir($this->getDocRoot($installationDirectory))) {
+				$this->appcontext->addDirectory($this->getDocRoot($installationDirectory));
 			}
-			$this->AppDirInstall = $appDir;
+			$this->installationDirectory = $installationDirectory;
 		}
 	}
-	public function getAppDirInstall() {
-		return $this->AppDirInstall;
+
+	public function getInstallationDirectory() {
+		return $this->installationDirectory;
 	}
 
 	public function info() {
@@ -57,14 +64,6 @@ abstract class BaseSetup implements InstallerInterface {
 		}
 		return $this->appInfo;
 	}
-	public function __construct($domain, HestiaApp $appcontext) {
-		if (filter_var($domain, FILTER_VALIDATE_DOMAIN) === false) {
-			throw new \Exception("Invalid domain name");
-		}
-
-		$this->domain = $domain;
-		$this->appcontext = $appcontext;
-	}
 
 	public function getConfig($section = null) {
 		return !empty($section) ? $this->config[$section] : $this->config;
@@ -78,54 +77,65 @@ abstract class BaseSetup implements InstallerInterface {
 		return $this->getConfig("database") === true;
 	}
 
-	public function getDocRoot($append_relative_path = null): string {
-		$domain_path = $this->appcontext->getWebDomainPath($this->domain);
+	public function getInstallationTarget(): InstallationTarget
+	{
+		$webDomain = $this->appcontext->getWebDomain($this->domain);
 
-		if (empty($domain_path) || !is_dir($domain_path)) {
-			throw new \Exception("Error finding domain folder ($domain_path)");
+		if (empty($webDomain->domainPath) || !is_dir($webDomain->domainPath)) {
+			throw new Exception(sprintf(
+				"Web domain path '%s' not found for domain '%s'",
+				$webDomain->domainPath,
+				$webDomain->domainName,
+			));
 		}
-		if (!$this->AppDirInstall) {
-			return Util::join_paths($domain_path, "public_html", $append_relative_path);
-		} else {
-			return Util::join_paths(
-				$domain_path,
-				"public_html",
-				$this->AppDirInstall,
-				$append_relative_path,
-			);
-		}
+
+		return new InstallationTarget(
+			$webDomain->domainName,
+			$webDomain->domainPath,
+			$this->installationDirectory,
+			$webDomain->ipAddress,
+			$webDomain->isSslEnabled,
+		);
 	}
 
 	public function retrieveResources($options) {
 		foreach ($this->getConfig("resources") as $res_type => $res_data) {
 			if (!empty($res_data["dst"]) && is_string($res_data["dst"])) {
-				$resource_destination = $this->getDocRoot($res_data["dst"]);
+				$destinationPath = $this->getDocRoot($res_data["dst"]);
 			} else {
-				$resource_destination = $this->getDocRoot($this->extractsubdir);
+				$destinationPath = $this->getDocRoot($this->extractsubdir);
 			}
 
 			if ($res_type === "composer") {
-				$res_data["php_version"] = $options["php_version"];
-				new ComposerResource(
-					$this->appcontext,
-					$res_data,
-					$resource_destination,
-					$options["php_version"],
+				$this->appcontext->runComposer(
+					$options['php_version'],
+					[
+						"create-project",
+						"--no-progress",
+						"--prefer-dist",
+						$res_data["src"],
+						"-d " . dirname($destinationPath),
+						basename($destinationPath),
+					],
 				);
 			} elseif ($res_type === "wp") {
-				new WpResource(
-					$this->appcontext,
-					$res_data,
-					$resource_destination,
-					$options,
-					$this->info(),
+				$this->appcontext->runWp(
+					$options['php_version'],
+					[
+						"core",
+						"download",
+						"--locale=" . $options["language"],
+						"--version=" . $this->info()["version"],
+						"--path=" . $destinationPath,
+					],
 				);
 			} else {
-				$this->appcontext->archiveExtract($res_data["src"], $resource_destination, 1);
+				$this->appcontext->archiveExtract($res_data["src"], $destinationPath, 1);
 			}
 		}
 		return true;
 	}
+
 	public function setup(array $options = null) {
 		if ($_SESSION["WEB_SYSTEM"] == "nginx") {
 			if (isset($this->config["server"]["nginx"]["template"])) {
@@ -152,45 +162,49 @@ abstract class BaseSetup implements InstallerInterface {
 					$this->config["server"]["php"]["supported"],
 				);
 				if (!$php_version) {
-					throw new \Exception("Required PHP version is not supported");
+					throw new Exception("Required PHP version is not supported");
 				}
-				//convert from x.x to PHP-x_x	to accepted..
+				//convert from x.x to PHP-x_x to accepted.
 				$this->appcontext->changeBackendTemplate(
 					$this->domain,
 					"PHP-" . str_replace(".", "_", $options["php_version"]),
 				);
 			}
 		}
+		if (isset($this->config["server"]["document_root"])) {
+			$this->appcontext->changeWebDocumentRoot(
+				$this->domain,
+				$this->config["server"]["document_root"],
+			);
+		}
 	}
 
 	public function install(array $options = null) {
-		$this->appcontext->runUser("v-delete-fs-file", [$this->getDocRoot("robots.txt")]);
-		$this->appcontext->runUser("v-delete-fs-file", [$this->getDocRoot("index.html")]);
+		$this->appcontext->deleteFile($this->getDocRoot("robots.txt"));
+		$this->appcontext->deleteFile($this->getDocRoot("index.html"));
+
 		return $this->retrieveResources($options);
 	}
 
 	public function cleanup() {
 		// Remove temporary folder
 		if (!empty($this->extractsubdir)) {
-			$this->appcontext->runUser(
-				"v-delete-fs-directory",
-				[$this->getDocRoot($this->extractsubdir)],
-				$result,
-			);
+			$this->appcontext->deleteDirectory($this->getDocRoot($this->extractsubdir));
 		}
 	}
 
 	public function saveTempFile(string $data) {
 		$tmp_file = tempnam("/tmp", "hst.");
 		if (empty($tmp_file)) {
-			throw new \Exception("Error creating temp file");
+			throw new Exception("Error creating temp file");
 		}
 
 		if (file_put_contents($tmp_file, $data) > 0) {
 			chmod($tmp_file, 0644);
 			$user_tmp_file = Util::join_paths($this->appcontext->getUserHomeDir(), $tmp_file);
-			$this->appcontext->runUser("v-copy-fs-file", [$tmp_file, $user_tmp_file], $result);
-			unlink($tmp_file);
+
+			$this->appcontext->moveFile($tmp_file, $user_tmp_file);
+
 			return $user_tmp_file;
 		}
 
@@ -198,5 +212,23 @@ abstract class BaseSetup implements InstallerInterface {
 			unlink($tmp_file);
 		}
 		return false;
+	}
+
+	private function getDocRoot($append_relative_path = null): string {
+		$domain_path = $this->appcontext->getWebDomainPath($this->domain);
+
+		if (empty($domain_path) || !is_dir($domain_path)) {
+			throw new Exception("Error finding domain folder ($domain_path)");
+		}
+		if (!$this->installationDirectory) {
+			return Util::join_paths($domain_path, "public_html", $append_relative_path);
+		}
+
+		return Util::join_paths(
+			$domain_path,
+			"public_html",
+			$this->installationDirectory,
+			$append_relative_path,
+		);
 	}
 }
