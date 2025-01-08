@@ -5,6 +5,6 @@ namespace Hestia\WebApp;
 
 interface InstallerInterface {
 	public function getInstallationTarget(): InstallationTarget;
-	public function install(array $options = null);
+	public function install(array $options = null): void;
 	public function withDatabase(): bool;
 }

@@ -115,7 +115,7 @@ class AppWizard {
 		return $filteredoptions;
 	}
 
-	public function execute(array $options) {
+	public function execute(array $options): void {
 		$options = $this->filterOptions($options);
 
 		$random_num = (string) random_int(10000, 99999);
@@ -134,7 +134,8 @@ class AppWizard {
 
 			if (!$this->appcontext->checkDatabaseLimit()) {
 				$this->errors[] = _("Unable to add database! Limit reached!");
-				return false;
+
+				return;
 			}
 
 			if (
@@ -147,12 +148,13 @@ class AppWizard {
 				)
 			) {
 				$this->errors[] = "Error adding database";
-				return false;
+
+				return;
 			}
 		}
 
 		if (empty($this->errors)) {
-			return $this->appsetup->install($options);
+			$this->appsetup->install($options);
 		}
 	}
 }

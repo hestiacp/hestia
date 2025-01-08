@@ -3,7 +3,6 @@
 namespace Hestia\WebApp\Installers\Nextcloud;
 
 use Hestia\WebApp\Installers\BaseSetup;
-use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class NextcloudSetup extends BaseSetup {
 	protected $appInfo = [
@@ -28,57 +27,56 @@ class NextcloudSetup extends BaseSetup {
 				"template" => "owncloud",
 			],
 			"php" => [
-				"supported" => ["8.0", "8.1", "8.2"],
+				"supported" => ["8.0", "8.1", "8.2", "8.3"],
 			],
 		],
 	];
 
-	public function install(array $options = null): bool {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
 
 		$installationTarget = $this->getInstallationTarget();
 
-		$this->appcontext->runUser(
-			"v-run-cli-cmd",
+		$this->appcontext->runPHP(
+			$options["php_version"],
+			$installationTarget->getDocRoot("occ"),
 			[
-				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($installationTarget->getDocRoot("occ")),
 				"maintenance:install",
-				"--database mysql",
-				"--database-name " .
-				quoteshellarg($this->appcontext->user() . "_" . $options["database_name"]),
-				"--database-host " . quoteshellarg($options["database_host"]),
-				"--database-user " .
-				quoteshellarg($this->appcontext->user() . "_" . $options["database_user"]),
-				"--database-pass " . quoteshellarg($options["database_password"]),
-				"--admin-user " . quoteshellarg($options["username"]),
-				"--admin-pass " . quoteshellarg($options["password"]),
-			],
-			$status,
+				"--database",
+				"mysql",
+				"--database-name",
+				$this->appcontext->user() . "_" . $options["database_name"],
+				"--database-host",
+				$options["database_host"],
+				"--database-user",
+				$this->appcontext->user() . "_" . $options["database_user"],
+				"--database-pass",
+				$options["database_password"],
+				"--admin-user",
+				$options["username"],
+				"--admin-pass",
+				$options["password"],
+			]
 		);
 
-		$this->appcontext->runUser(
-			"v-run-cli-cmd",
+		$this->appcontext->runPHP(
+			$options["php_version"],
+			$installationTarget->getDocRoot("occ"),
 			[
-				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($installationTarget->getDocRoot("occ")),
 				"config:system:set",
-				"trusted_domains 2 --value=" . quoteshellarg($installationTarget->domainName),
-			],
-			$status,
+				"trusted_domains",
+				"2",
+				"--value=" . $installationTarget->domainName,
+			]
 		);
 
 		// Bump minimum memory limit to 512M
-		$result = null;
-		$file = $installationTarget->getDocRoot(".user.ini");
-		$this->appcontext->runUser("v-open-fs-file", [$file], $result);
-		array_push($result->raw, "memory_limit=512M");
-		$tmp = $this->saveTempFile(implode("\r\n", $result->raw));
-		if (!$this->appcontext->runUser("v-move-fs-file", [$tmp, $file], $result)) {
-			throw new \Exception("Error updating file in: " . $tmp . " " . $result->text);
-		}
+		$phpIni = $installationTarget->getDocRoot(".user.ini");
 
-		return $status->code === 0;
+		$contents = $this->appcontext->readFile($phpIni);
+		$contents .= "memory_limit=512M\r\n";
+
+		$this->appcontext->createFile($phpIni, $contents);
 	}
 }

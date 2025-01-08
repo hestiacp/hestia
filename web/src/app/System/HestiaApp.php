@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Hestia\System;
 use Exception;
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
-use function array_unshift;
 use function chmod;
-use function Hestiacp\quoteshellarg\quoteshellarg;
-use function is_file;
+use function sprintf;
+use function str_starts_with;
 use function trigger_error;
 use function unlink;
 use const DIRECTORY_SEPARATOR;
@@ -17,12 +17,7 @@ use const DIRECTORY_SEPARATOR;
 class HestiaApp {
 	/** @var string[] */
 	public $errors;
-	protected const TMPDIR_DOWNLOADS = "/tmp/hestia-webapp";
 	protected $phpsupport = false;
-
-	public function __construct() {
-		@mkdir(self::TMPDIR_DOWNLOADS);
-	}
 
 	public function addDirectory(string $path): void
 	{
@@ -51,6 +46,17 @@ class HestiaApp {
 		if ($result->exitCode !== 0) {
 			throw new RuntimeException(sprintf('Failed to remove directory "%s"', $path));
 		}
+	}
+
+	public function readFile(string $path): string
+	{
+		$result = $this->runUser("v-open-fs-file", [$path]);
+
+		if ($result->exitCode !== 0) {
+			throw new RuntimeException(sprintf('Failed to remove directory "%s"', $path));
+		}
+
+		return $result->output;
 	}
 
 	public function createFile(string $path, string $contents): void
@@ -130,7 +136,7 @@ class HestiaApp {
 	}
 
 	public function runComposer($phpVersion, $args): HestiaCommandResult {
-		$this->runUser("v-add-user-composer", []);
+		$this->runUser("v-add-user-composer", ["2", "yes"]);
 
 		$composerBin = $this->getUserHomeDir() . "/.composer/composer";
 
@@ -138,7 +144,7 @@ class HestiaApp {
 	}
 
 	public function runWp($phpVersion, $args): HestiaCommandResult {
-		$this->runUser("v-add-user-wp-cli", []);
+		$this->runUser("v-add-user-wp-cli", ["yes"]);
 
 		$wpCliBin = $this->getUserHomeDir() . "/.wp-cli/wp";
 
@@ -312,42 +318,25 @@ class HestiaApp {
 		return Util::join_paths($this->getUserHomeDir(), "web", $domain);
 	}
 
-	public function downloadUrl(string $src, $path = null, &$result = null) {
-		if (strpos($src, "http://") !== 0 && strpos($src, "https://") !== 0) {
-			return false;
-		}
-
-		exec(
-			"/usr/bin/wget --tries 3 --timeout=30 --no-dns-cache -nv " .
-				quoteshellarg($src) .
-				" -P " .
-				quoteshellarg(self::TMPDIR_DOWNLOADS) .
-				" 2>&1",
-			$output,
-			$return_var,
+	public function downloadUrl(string $src): void {
+		$result = $this->runUser(
+			"v-run-cli-cmd",
+			[
+				"/usr/bin/wget",
+				"--tries",
+				"3",
+				"--timeout=30",
+				"--no-dns-cache",
+				"-nv",
+				$src,
+				"-P",
+				self::TMPDIR_DOWNLOADS,
+			],
 		);
-		if ($return_var !== 0) {
-			return false;
-		}
 
-		if (
-			!preg_match(
-				'/URL:\s*(.+?)\s*\[(.+?)\]\s*->\s*"(.+?)"/',
-				implode(PHP_EOL, $output),
-				$matches,
-			)
-		) {
-			return false;
+		if ($result->exitCode !== 0) {
+			throw new RuntimeException(sprintf('Failed to download "%s"', $src));
 		}
-
-		if (empty($matches) || count($matches) != 4) {
-			return false;
-		}
-
-		$status["url"] = $matches[1];
-		$status["file"] = $matches[3];
-		$result = (object) $status;
-		return true;
 	}
 
 	public function archiveExtract(string $src, string $path, $skip_components = null) {
@@ -355,13 +344,13 @@ class HestiaApp {
 			throw new Exception("Error extracting archive: missing target folder");
 		}
 
+		// Download archive
+		if (str_starts_with($src, "http://") || str_starts_with($src, "https://")) {
+			$this->downloadUrl($src);
+		}
+
 		if (realpath($src)) {
 			$archive_file = $src;
-		} else {
-			if (!$this->downloadUrl($src, null, $download_result)) {
-				throw new Exception("Error downloading archive");
-			}
-			$archive_file = $download_result->file;
 		}
 
 		$result = $this->runUser("v-extract-fs-archive", [
@@ -398,6 +387,12 @@ class HestiaApp {
 			...$args,
 		];
 
+		// Escape spaces to disallow splitting commands and allow spaces in names like site names
+		$command = array_map(
+			fn (string $argument) => str_replace(" ", "\\ ", $argument),
+			$command,
+		);
+
 		$process = new Process($command);
 		$process->run();
 
@@ -405,7 +400,7 @@ class HestiaApp {
 			//log error message in nginx-error.log
 			trigger_error($process->getCommandLine() . " | " . $process->getOutput());
 			//throw exception if command fails
-			throw new RuntimeException($process->getErrorOutput());
+			throw new ProcessFailedException($process);
 		}
 
 		return new HestiaCommandResult(

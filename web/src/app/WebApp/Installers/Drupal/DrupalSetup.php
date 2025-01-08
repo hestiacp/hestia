@@ -25,6 +25,9 @@ class DrupalSetup extends BaseSetup {
 			"composer" => ["src" => "drupal/recommended-project", "dst" => "/"],
 		],
 		"server" => [
+			"apache2" => [
+				"document_root" => "web",
+			],
 			"nginx" => [
 				"template" => "drupal-composer",
 			],
@@ -34,7 +37,7 @@ class DrupalSetup extends BaseSetup {
 		],
 	];
 
-	public function install(array $options = null): bool {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
 
@@ -42,18 +45,7 @@ class DrupalSetup extends BaseSetup {
 
 		$this->appcontext->runComposer(
 			$options["php_version"],
-			["require", "-d " . $installationTarget->getDocRoot(), "drush/drush"],
-		);
-
-		$htaccessContents = '
-<IfModule mod_rewrite.c>
-		RewriteEngine On
-		RewriteRule ^(.*)$ web/$1 [L]
-</IfModule>';
-
-		$this->appcontext->createFile(
-			$installationTarget->getDocRoot(".htaccess"),
-			$htaccessContents,
+			["require", "-d", $installationTarget->getDocRoot(), "drush/drush"],
 		);
 
 		$databaseUrl = sprintf(
@@ -73,11 +65,9 @@ class DrupalSetup extends BaseSetup {
 				"--db-url=" . $databaseUrl,
 				"--account-name=" . $options["username"],
 				"--account-pass=" . $options["password"],
-				"--site-name=Drupal",
+				"--site-name=Drupal", // Sadly even when escaped spaces are splitted up
 				"--site-mail=" . $options["email"],
 			]
 		);
-
-		return true;
 	}
 }

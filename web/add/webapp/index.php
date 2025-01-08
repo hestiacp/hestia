@@ -81,19 +81,12 @@ if (!empty($_POST["ok"]) && !empty($app)) {
 
 	if ($installer) {
 		try {
-			if (!$installer->execute($_POST)) {
-				$result = $installer->getStatus();
-				if (!empty($result)) {
-					$_SESSION["error_msg"] = implode(PHP_EOL, $result);
-				}
-			} else {
-				$_SESSION["ok_msg"] = sprintf(
-					_("%s installed successfully."),
-					htmlspecialchars($app),
-				);
-				header("Location: /add/webapp/?domain=" . $v_domain);
-				exit();
-			}
+			$installer->execute($_POST);
+
+			$_SESSION["ok_msg"] = sprintf(_("%s installed successfully."), htmlspecialchars($app));
+
+			header("Location: /add/webapp/?domain=" . $v_domain);
+			exit();
 		} catch (Exception $e) {
 			$_SESSION["error_msg"] = $e->getMessage();
 			header("Location: /add/webapp/?app=" . rawurlencode($app) . "&domain=" . $v_domain);

@@ -4,7 +4,6 @@ namespace Hestia\WebApp\Installers\Joomla;
 
 use Hestia\System\Util;
 use Hestia\WebApp\Installers\BaseSetup;
-use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class JoomlaSetup extends BaseSetup {
 	protected $appInfo = [
@@ -54,55 +53,35 @@ class JoomlaSetup extends BaseSetup {
 				"template" => "joomla",
 			],
 			"php" => [
-				"supported" => ["7.4", "8.0", "8.1", "8.2"],
+				"supported" => ["7.4", "8.0", "8.1", "8.2", "8.3"],
 			],
 		],
 	];
 
-	public function install(array $options = null): bool {
+	public function install(array $options = null): void {
 		parent::setInstallationDirectory($options["install_directory"] ?? "");
 		parent::install($options);
 		parent::setup($options);
 
 		$installationTarget = $this->getInstallationTarget();
 
-		// Database credentials
-		$dbHost = $options["database_host"];
-		$dbName = $this->appcontext->user() . "_" . $options["database_name"];
-		$dbUser = $this->appcontext->user() . "_" . $options["database_user"];
-		$dbPass = $options["database_password"];
-
-		// Site and admin credentials
-		$siteName = $options["site_name"];
-		$adminUsername = $options["admin_username"];
-		$adminPassword = $options["admin_password"];
-		$adminEmail = $options["admin_email"];
-
-		// Initialize Joomla using the CLI
-		$cliCmd = [
-			"/usr/bin/php",
-			quoteshellarg($installationTarget->getDocRoot("/installation/joomla.php")),
-			"install",
-			"--site-name=" . quoteshellarg($siteName),
-			"--admin-user=" . quoteshellarg($adminUsername),
-			"--admin-username=" . quoteshellarg($adminUsername),
-			"--admin-password=" . quoteshellarg($adminPassword),
-			"--admin-email=" . quoteshellarg($adminEmail),
-			"--db-user=" . quoteshellarg($dbUser),
-			"--db-pass=" . quoteshellarg($dbPass),
-			"--db-name=" . quoteshellarg($dbName),
-			"--db-prefix=" . quoteshellarg(Util::generate_string(5, false) . "_"),
-			"--db-host=" . quoteshellarg($dbHost),
-			"--db-type=mysqli",
-		];
-
-		$status = null;
-		$this->appcontext->runUser("v-run-cli-cmd", $cliCmd, $status);
-
-		if ($status->code !== 0) {
-			throw new \Exception("Failed to install Joomla using CLI: " . $status->text);
-		}
-
-		return true;
+		$this->appcontext->runPHP(
+			$options["php_version"],
+			$installationTarget->getDocRoot("/installation/joomla.php"),
+			[
+				"install",
+				"--site-name=" . $options["site_name"],
+				"--admin-user=" . $options["admin_username"],
+				"--admin-username=" . $options["admin_username"],
+				"--admin-password=" . $options["admin_password"],
+				"--admin-email=" . $options["admin_email"],
+				"--db-user=" . $this->appcontext->user() . "_" . $options["database_user"],
+				"--db-pass=" . $options["database_password"],
+				"--db-name=" . $this->appcontext->user() . "_" . $options["database_name"],
+				"--db-prefix=" . 'jl' . Util::generate_string(5, false) . "_",
+				"--db-host=" . $options["database_host"],
+				"--db-type=mysqli",
+			]
+		);
 	}
 }

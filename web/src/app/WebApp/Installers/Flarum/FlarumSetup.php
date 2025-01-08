@@ -25,17 +25,19 @@ class FlarumSetup extends BaseSetup {
 			"composer" => ["src" => "flarum/flarum"],
 		],
 		"server" => [
+			"apache2" => [
+				"document_root" => "public",
+			],
 			"nginx" => [
 				"template" => "flarum",
 			],
 			"php" => [
 				"supported" => ["8.2", "8.3"],
 			],
-			"document_root" => "public",
 		],
 	];
 
-	public function install(array $options = null): bool {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
 
@@ -56,7 +58,5 @@ class FlarumSetup extends BaseSetup {
 				"adminPasswordConfirmation" => $options["admin_password"],
 			],
 		);
-
-		return true;
 	}
 }

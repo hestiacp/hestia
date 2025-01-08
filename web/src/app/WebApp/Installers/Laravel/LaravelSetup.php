@@ -15,11 +15,14 @@ class LaravelSetup extends BaseSetup {
 
 	protected $config = [
 		"form" => [],
-		"database" => true,
+		"database" => false,
 		"resources" => [
 			"composer" => ["src" => "laravel/laravel", "dst" => "/"],
 		],
 		"server" => [
+			"apache2" => [
+				"document_root" => "public",
+			],
 			"nginx" => [
 				"template" => "laravel",
 			],
@@ -29,27 +32,8 @@ class LaravelSetup extends BaseSetup {
 		],
 	];
 
-	public function install(array $options = null): bool {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
-
-		$installationTarget = $this->getInstallationTarget();
-
-		$result = null;
-
-		$htaccess_rewrite = '
-<IfModule mod_rewrite.c>
-		RewriteEngine On
-		RewriteRule ^(.*)$ public/$1 [L]
-</IfModule>';
-
-		$tmp_configpath = $this->saveTempFile($htaccess_rewrite);
-		$this->appcontext->runUser(
-			"v-move-fs-file",
-			[$tmp_configpath, $installationTarget->getDocRoot(".htaccess")],
-			$result,
-		);
-
-		return $result->code === 0;
 	}
 }

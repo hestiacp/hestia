@@ -34,7 +34,7 @@ class GravSetup extends BaseSetup {
 		],
 	];
 
-	public function install(array $options = null) {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
 
@@ -46,24 +46,32 @@ class GravSetup extends BaseSetup {
 			$this->appcontext->runPHP(
 				$options["php_version"],
 				$installationTarget->getDocRoot("/bin/gpm"),
-				["install admin"],
+				[
+					"install",
+					"admin",
+				],
 			);
 
 			$this->appcontext->runPHP(
 				$options["php_version"],
 				$installationTarget->getDocRoot("/bin/plugin"),
 				[
-					"login new-user",
-					"-u " . $options["username"],
-					"-p " . $options["password"],
-					"-e " . $options["email"],
-					"-P a",
-					"-N " . $options["username"],
-					"-l en",
+					"login",
+					"new-user",
+					"-u",
+					$options["username"],
+					"-p",
+					$options["password"],
+					"-e",
+					$options["email"],
+					"-P",
+					"a",
+					"-N",
+					$options["username"],
+					"-l",
+					"en"
 				],
 			);
 		}
-
-		return true;
 	}
 }

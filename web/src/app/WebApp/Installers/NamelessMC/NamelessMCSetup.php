@@ -42,11 +42,7 @@ class NamelessMCSetup extends BaseSetup {
 		],
 	];
 
-	public function install(array $options = null) {
+	public function install(array $options = null): void {
 		parent::install($options);
-
-		$status = 0;
-
-		return $status === 0;
 	}
 }

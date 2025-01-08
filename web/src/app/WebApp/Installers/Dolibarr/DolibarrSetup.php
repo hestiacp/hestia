@@ -37,17 +37,19 @@ class DolibarrSetup extends BaseSetup {
 			],
 		],
 		"server" => [
+			"apache2" => [
+				"document_root" => "htdocs",
+			],
 			"nginx" => [
 				"template" => "dolibarr",
 			],
 			"php" => [
 				"supported" => ["7.4", "8.0", "8.1", "8.2", "8.3"],
 			],
-			"document_root" => "htdocs",
 		],
 	];
 
-	public function install(array $options = null): bool {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
 
@@ -121,9 +123,5 @@ class DolibarrSetup extends BaseSetup {
 				'selectlang' => $language,
 			]
 		);
-
-		$this->cleanup();
-
-		return true;
 	}
 }

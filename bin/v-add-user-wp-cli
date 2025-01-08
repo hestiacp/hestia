@@ -45,7 +45,7 @@ WPCLI_DIR="/home/$user/.wp-cli"
 WPCLI_BIN="$WPCLI_DIR/wp"
 
 if [ -f "$WPCLI_BIN" ]; then
-	if [ -f "$update" ]; then
+	if [ "$update" = 'yes' ]; then
 		user_exec $WPCLI_BIN cli update --yes
 		exit
 	fi

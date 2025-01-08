@@ -3,18 +3,15 @@
 namespace Hestia\WebApp\Installers\MediaWiki;
 
 use Hestia\WebApp\Installers\BaseSetup;
-use function Hestiacp\quoteshellarg\quoteshellarg;
 
 class MediaWikiSetup extends BaseSetup {
 	protected $appInfo = [
 		"name" => "MediaWiki",
 		"group" => "cms",
 		"enabled" => true,
-		"version" => "1.42.3",
+		"version" => "1.43.0",
 		"thumbnail" => "MediaWiki-2020-logo.svg", //Max size is 300px by 300px
 	];
-
-	protected $extractsubdir = "/tmp-mediawiki";
 
 	protected $config = [
 		"form" => [
@@ -25,7 +22,7 @@ class MediaWikiSetup extends BaseSetup {
 		"database" => true,
 		"resources" => [
 			"archive" => [
-				"src" => "https://releases.wikimedia.org/mediawiki/1.42/mediawiki-1.42.3.zip",
+				"src" => "https://releases.wikimedia.org/mediawiki/1.43/mediawiki-1.43.0.zip",
 			],
 		],
 		"server" => [
@@ -33,49 +30,43 @@ class MediaWikiSetup extends BaseSetup {
 				"template" => "default",
 			],
 			"php" => [
-				"supported" => ["8.0", "8.1", "8.2"],
+				"supported" => ["8.0", "8.1", "8.2", "8.3"],
 			],
 		],
 	];
 
-	public function install(array $options = null) {
+	public function install(array $options = null): void {
 		parent::install($options);
 		parent::setup($options);
 
 		$installationTarget = $this->getInstallationTarget();
 
-		$this->appcontext->runUser(
-			"v-copy-fs-directory",
-			[$installationTarget->getDocRoot($this->extractsubdir . "/mediawiki-1.42.3/."), $installationTarget->getDocRoot()],
-			$result,
+		$this->appcontext->copyDirectory(
+			$installationTarget->getDocRoot("/mediawiki-1.43.0/."),
+			$installationTarget->getDocRoot()
 		);
 
-		$this->appcontext->runUser(
-			"v-run-cli-cmd",
+		$this->appcontext->runPHP(
+			$options["php_version"],
+			$installationTarget->getDocRoot("maintenance/install.php"),
 			[
-				"/usr/bin/php" . $options["php_version"],
-				quoteshellarg($installationTarget->getDocRoot("maintenance/install.php")),
-				"--dbserver=" . quoteshellarg($options["database_host"]),
-				"--dbname=" .
-				quoteshellarg($this->appcontext->user() . "_" . $options["database_name"]),
-				"--installdbuser=" .
-				quoteshellarg($this->appcontext->user() . "_" . $options["database_user"]),
-				"--installdbpass=" . quoteshellarg($options["database_password"]),
-				"--dbuser=" .
-				quoteshellarg($this->appcontext->user() . "_" . $options["database_user"]),
-				"--dbpass=" . quoteshellarg($options["database_password"]),
-				"--server=" . quoteshellarg($installationTarget->getUrl()),
+				"--dbserver=" . $options["database_host"],
+				"--dbname=" . $this->appcontext->user() . "_" . $options["database_name"],
+				"--installdbuser=" . $this->appcontext->user() . "_" . $options["database_user"],
+				"--installdbpass=" . $options["database_password"],
+				"--dbuser=" . $this->appcontext->user() . "_" . $options["database_user"],
+				"--dbpass=" . $options["database_password"],
+				"--server=" . $installationTarget->getUrl(),
 				"--scriptpath=", // must NOT be /
-				"--lang=" . quoteshellarg($options["language"]),
-				"--pass=" . quoteshellarg($options["admin_password"]),
-				"MediaWiki", // A Space here would trigger the next argument and preemptively set the admin username
-				quoteshellarg($options["admin_username"]),
+				"--lang=" . $options["language"],
+				"--pass=" . $options["admin_password"],
+				"Media Wiki",
+				$options["admin_username"],
 			],
-			$status,
 		);
 
-		$this->cleanup();
-
-		return $status->code === 0;
+		$this->appcontext->deleteDirectory(
+			$installationTarget->getDocRoot("/mediawiki-1.43.0/")
+		);
 	}
 }

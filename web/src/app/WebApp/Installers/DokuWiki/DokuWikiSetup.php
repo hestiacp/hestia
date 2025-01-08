@@ -57,7 +57,7 @@ class DokuWikiSetup extends BaseSetup {
 		],
 	];
 
-	public function install(array $options = null, &$status = null) {
+	public function install(array $options = null, &$status = null): void {
 		parent::install($options);
 		parent::setup($options);
 
@@ -91,8 +91,5 @@ class DokuWikiSetup extends BaseSetup {
 
 		// remove temp folder
 		$this->appcontext->deleteFile($installationTarget->getDocRoot("install.php"));
-		$this->cleanup();
-
-		return true;
 	}
 }

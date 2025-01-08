@@ -98,7 +98,7 @@ abstract class BaseSetup implements InstallerInterface {
 		);
 	}
 
-	public function retrieveResources($options) {
+	public function retrieveResources($options): void {
 		foreach ($this->getConfig("resources") as $res_type => $res_data) {
 			if (!empty($res_data["dst"]) && is_string($res_data["dst"])) {
 				$destinationPath = $this->getDocRoot($res_data["dst"]);
@@ -114,7 +114,8 @@ abstract class BaseSetup implements InstallerInterface {
 						"--no-progress",
 						"--prefer-dist",
 						$res_data["src"],
-						"-d " . dirname($destinationPath),
+						"-d",
+						dirname($destinationPath),
 						basename($destinationPath),
 					],
 				);
@@ -133,7 +134,6 @@ abstract class BaseSetup implements InstallerInterface {
 				$this->appcontext->archiveExtract($res_data["src"], $destinationPath, 1);
 			}
 		}
-		return true;
 	}
 
 	public function setup(array $options = null) {
@@ -155,6 +155,12 @@ abstract class BaseSetup implements InstallerInterface {
 			} else {
 				$this->appcontext->changeWebTemplate($this->domain, "default");
 			}
+			if (isset($this->config["server"]['apache2']["document_root"])) {
+				$this->appcontext->changeWebDocumentRoot(
+					$this->domain,
+					$this->config["server"]['apache2']["document_root"],
+				);
+			}
 		}
 		if ($_SESSION["WEB_BACKEND"] == "php-fpm") {
 			if (isset($this->config["server"]["php"]["supported"])) {
@@ -171,47 +177,13 @@ abstract class BaseSetup implements InstallerInterface {
 				);
 			}
 		}
-		if (isset($this->config["server"]["document_root"])) {
-			$this->appcontext->changeWebDocumentRoot(
-				$this->domain,
-				$this->config["server"]["document_root"],
-			);
-		}
 	}
 
-	public function install(array $options = null) {
+	public function install(array $options = null): void {
 		$this->appcontext->deleteFile($this->getDocRoot("robots.txt"));
 		$this->appcontext->deleteFile($this->getDocRoot("index.html"));
 
-		return $this->retrieveResources($options);
-	}
-
-	public function cleanup() {
-		// Remove temporary folder
-		if (!empty($this->extractsubdir)) {
-			$this->appcontext->deleteDirectory($this->getDocRoot($this->extractsubdir));
-		}
-	}
-
-	public function saveTempFile(string $data) {
-		$tmp_file = tempnam("/tmp", "hst.");
-		if (empty($tmp_file)) {
-			throw new Exception("Error creating temp file");
-		}
-
-		if (file_put_contents($tmp_file, $data) > 0) {
-			chmod($tmp_file, 0644);
-			$user_tmp_file = Util::join_paths($this->appcontext->getUserHomeDir(), $tmp_file);
-
-			$this->appcontext->moveFile($tmp_file, $user_tmp_file);
-
-			return $user_tmp_file;
-		}
-
-		if (file_exists($tmp_file)) {
-			unlink($tmp_file);
-		}
-		return false;
+		$this->retrieveResources($options);
 	}
 
 	private function getDocRoot($append_relative_path = null): string {
