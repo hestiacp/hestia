@@ -65,6 +65,7 @@ fi
 # Update config
 update_object_value 'web' 'DOMAIN' "$domain" '$PROXY' ''
 update_object_value 'web' 'DOMAIN' "$domain" '$PROXY_EXT' ''
+update_object_value 'web' 'DOMAIN' "$domain" '$PROXY_URL' ''
 
 # Restart proxy server
 $BIN/v-restart-proxy "$restart"

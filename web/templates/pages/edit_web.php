@@ -35,6 +35,7 @@
 			showAdvanced: false,
 			nginxCacheEnabled: <?= $v_nginx_cache == "yes" ? "true" : "false" ?>,
 			proxySupportEnabled: <?= !empty($v_proxy) ? "true" : "false" ?>,
+			statsProxyUrlFilled: <?= !empty($v_proxy_template == 'reverse_proxy') ? "true" : "false" ?>,
 			customDocumentRootEnabled: <?= !empty($v_custom_doc_root) ? "true" : "false" ?>
 		}"
 		id="main-form"
@@ -345,6 +346,13 @@
 										}
 									?>
 								</select>
+							</div>
+							<div x-show="statsProxyUrlFilled" class="u-mb10 js-proxy-url-field">
+								<label for="v_proxy_url" class="form-label">
+									<?php print _("Reverse Proxy Url"); ?>
+								</label>
+								<input type="text" class="form-control" name="v_proxy_url" id="v_proxy_url" value="<?= htmlentities(trim((!empty($v_proxy_url) ? $v_proxy_url : 'http://127.0.0.1:8080'), "'")) ?>">
+								<small>http://localhost:8080</small>
 							</div>
 							<div class="u-mb10">
 								<label for="v_proxy_ext" class="form-label"><?= _("Proxy Extensions") ?></label>

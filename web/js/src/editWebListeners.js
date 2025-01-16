@@ -63,4 +63,18 @@ export default function handleEditWebListeners() {
 			}
 		});
 	}
+
+	// Listen to "Advanced Options -> Proxy Template" select menu to
+	// show "Proxy url" input if "reverse_proxy" selected
+	const proxyUrl = document.querySelector('.js-proxy-url-field');
+	if (proxyTemplateSelect && proxyUrl) {
+		proxyTemplateSelect.addEventListener('change', () => {
+			// NOTE: Match "reverse_proxy" and "reverse_proxy-*" values
+			if (proxyTemplateSelect.value === 'reverse_proxy' || proxyTemplateSelect.value.match(/^reverse_proxy-/)) {
+				proxyUrl.style.display = 'block';
+			} else {
+				proxyUrl.style.display = 'none';
+			}
+		});
+	}
 }
