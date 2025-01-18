@@ -18,7 +18,7 @@ hour=$3
 day=$4
 month=$5
 wday=$6
-command=$(echo $7 | sed "s/'/%quote%/g")
+command=$(echo -n $7 | base64 -w 0)
 job=$8
 restart=$9
 

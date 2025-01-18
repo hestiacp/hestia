@@ -91,9 +91,6 @@ fi
 # Parsing cron job
 parse_object_kv_list "$cron_line"
 
-# Replacing quoted and backslahed text
-CMD=$(echo "$CMD" | sed -e 's/"/\\"/g' -e "s/%quote%/'/g")
-
 # Listing data
 case $format in
 	json) json_list ;;

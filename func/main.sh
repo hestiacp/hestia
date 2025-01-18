@@ -699,12 +699,12 @@ sync_cron_jobs() {
 		echo 'MAILTO=""' > $crontab
 	fi
 
-	while read line; do
+	while read -r line; do
 		parse_object_kv_list "$line"
 		if [ "$SUSPENDED" = 'no' ]; then
-			echo "$MIN $HOUR $DAY $MONTH $WDAY $CMD" \
-				| sed -e "s/%quote%/'/g" -e "s/%dots%/:/g" \
-					>> $crontab
+			# Replace \" with "
+			CMD=$(base64 -d <<< "$CMD")
+			echo "$MIN $HOUR $DAY $MONTH $WDAY $CMD" | sed -e "s/%quote%/'/g" -e "s/%dots%/:/g" >> $crontab
 		fi
 	done < $USER_DATA/cron.conf
 	chown $user:$user $crontab

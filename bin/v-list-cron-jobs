@@ -28,9 +28,9 @@ json_list() {
 	i=1
 	objects=$(grep JOB $USER_DATA/cron.conf | wc -l)
 	echo "{"
-	while read str; do
+	while read -r str; do
 		parse_object_kv_list "$str"
-		CMD=$(echo "$CMD" | sed -e 's/"/\\"/g' -e "s/%quote%/'/g")
+		CMD=$(echo "$CMD" | sed -e 's/"/\"/g' -e "s/%quote%/'/g")
 		echo -n '    "'$JOB'": {
         "MIN": "'$MIN'",
         "HOUR": "'$HOUR'",
@@ -49,7 +49,7 @@ json_list() {
 			echo
 		fi
 		((i++))
-	done < <(cat $USER_DATA/cron.conf)
+	done < $USER_DATA/cron.conf
 	echo '}'
 }
 

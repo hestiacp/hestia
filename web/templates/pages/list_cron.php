@@ -68,7 +68,6 @@
 <div class="container">
 
 	<h1 class="u-text-center u-hide-desktop u-mt20 u-pr30 u-mb20 u-pl30"><?= _("Cron Jobs") ?></h1>
-
 	<div class="units-table js-units-container">
 		<div class="units-table-header">
 			<div class="units-table-cell">
@@ -82,7 +81,6 @@
 			<div class="units-table-cell u-text-center"><?= _("Month") ?></div>
 			<div class="units-table-cell u-text-center"><?= _("Day of Week") ?></div>
 		</div>
-
 		<!-- Begin cron job list item loop -->
 		<?php
 		foreach ($data as $key => $value) {
@@ -190,7 +188,13 @@
 
 	<div class="units-table-footer">
 		<p>
-			<?php printf(ngettext("%d cron job", "%d cron jobs", $i), $i); ?>
+			<!-- If cronjobs could not be retrieved, display an error message with --> 
+			<?php if ($retrieve_error) { ?>
+				<?php show_alert_message($_SESSION); ?>
+			<?php } else { ?>
+				<?php printf(ngettext("%d cron job", "%d cron jobs", $i), $i); ?>
+			<?php } ?>
+			
 		</p>
 	</div>
 

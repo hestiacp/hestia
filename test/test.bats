@@ -618,8 +618,8 @@ function check_ip_not_banned(){
 @test "Cron: Two cron jobs must be listed" {
     run v-list-cron-jobs $user csv
     assert_success
-    assert_line --partial '1,1,1,1,1,"echo",no'
-    assert_line --partial '2,2,2,2,2,"echo",no'
+    assert_line --partial '1,1,1,1,1,"ZWNobw==",no'
+    assert_line --partial '2,2,2,2,2,"ZWNobw==",no'
 }
 
 @test "Cron: rebuild" {
