@@ -47,11 +47,11 @@ node_v="20"
 software="acl apache2 apache2.2-common apache2-suexec-custom apache2-utils apparmor-utils awstats bc bind9 bsdmainutils bsdutils
   clamav-daemon cron curl dnsutils dovecot-imapd dovecot-managesieved dovecot-pop3d dovecot-sieve e2fslibs e2fsprogs
   exim4 exim4-daemon-heavy expect fail2ban flex ftp git hestia=${HESTIA_INSTALL_VER} hestia-nginx hestia-php hestia-web-terminal
-  idn2 imagemagick ipset jq libapache2-mod-fcgid libapache2-mod-php$fpm_v libapache2-mod-rpaf libonig5 libzip4 lsb-release
+  idn2 imagemagick ipset jq libapache2-mod-fcgid libapache2-mod-rpaf libonig5 libzip4 lsb-release
   lsof mariadb-client mariadb-common mariadb-server mc mysql-client mysql-common mysql-server nginx nodejs openssh-server
-  php$fpm_v php$fpm_v-apcu php$fpm_v-bz2 php$fpm_v-cgi php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-gd
+  php$fpm_v php$fpm_v-apcu php$fpm_v-bcmath php$fpm_v-bz2 php$fpm_v-cli php$fpm_v-common php$fpm_v-curl php$fpm_v-fpm php$fpm_v-gd
   php$fpm_v-imagick php$fpm_v-imap php$fpm_v-intl php$fpm_v-ldap php$fpm_v-mbstring php$fpm_v-mysql php$fpm_v-opcache
-  php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-xml php$fpm_v-zip postgresql postgresql-contrib
+  php$fpm_v-pgsql php$fpm_v-pspell php$fpm_v-readline php$fpm_v-soap php$fpm_v-xml php$fpm_v-zip postgresql postgresql-contrib
   proftpd-basic quota rrdtool rsyslog util-linux spamassassin
   sysstat unzip vim-common vsftpd whois zip zstd bubblewrap restic"
 
@@ -61,7 +61,6 @@ installer_dependencies="apt-transport-https ca-certificates curl dirmngr gnupg o
 help() {
 	echo "Usage: $0 [OPTIONS]
   -a, --apache            Install Apache        [yes|no]  default: yes
-  -w, --phpfpm            Install PHP-FPM       [yes|no]  default: yes
   -o, --multiphp          Install MultiPHP      [yes|no]  default: no
   -v, --vsftpd            Install VSFTPD        [yes|no]  default: yes
   -j, --proftpd           Install ProFTPD       [yes|no]  default: no
@@ -244,7 +243,6 @@ for arg; do
 	delim=""
 	case "$arg" in
 		--apache) args="${args}-a " ;;
-		--phpfpm) args="${args}-w " ;;
 		--vsftpd) args="${args}-v " ;;
 		--proftpd) args="${args}-j " ;;
 		--named) args="${args}-k " ;;
@@ -287,7 +285,6 @@ eval set -- "$args"
 while getopts "a:w:v:j:k:m:M:g:d:x:z:Z:c:t:i:b:r:o:q:L:l:y:s:u:e:p:W:D:fh" Option; do
 	case $Option in
 		a) apache=$OPTARG ;;        # Apache
-		w) phpfpm=$OPTARG ;;        # PHP-FPM
 		o) multiphp=$OPTARG ;;      # Multi-PHP
 		v) vsftpd=$OPTARG ;;        # Vsftpd
 		j) proftpd=$OPTARG ;;       # Proftpd
@@ -360,7 +357,6 @@ fi
 # Defining default software stack
 set_default_value 'nginx' 'yes'
 set_default_value 'apache' 'yes'
-set_default_value 'phpfpm' 'yes'
 set_default_value 'multiphp' 'no'
 set_default_value 'vsftpd' 'yes'
 set_default_value 'proftpd' 'no'
@@ -405,9 +401,6 @@ if [ "$dovecot" = 'no' ]; then
 fi
 if [ "$iptables" = 'no' ]; then
 	fail2ban='no'
-fi
-if [ "$apache" = 'no' ]; then
-	phpfpm='yes'
 fi
 if [ "$mysql" = 'yes' ] && [ "$mysql8" = 'yes' ]; then
 	mysql='no'
@@ -602,11 +595,8 @@ echo '   - NGINX Web / Proxy Server'
 if [ "$apache" = 'yes' ]; then
 	echo '   - Apache Web Server (as backend)'
 fi
-if [ "$phpfpm" = 'yes' ] && [ "$multiphp" = 'no' ]; then
-	echo '   - PHP-FPM Application Server'
-fi
+echo '   - PHP-FPM Application Server'
 if [ "$multiphp" = 'yes' ]; then
-	phpfpm='yes'
 	echo -n '   - Multi-PHP Environment: Version'
 	for version in "${multiphp_v[@]}"; do
 		echo -n " php$version"
@@ -950,19 +940,6 @@ apt-get -y purge hestia hestia-nginx hestia-php > /dev/null 2>&1
 rm -rf $HESTIA > /dev/null 2>&1
 
 #----------------------------------------------------------#
-#                     Package Includes                     #
-#----------------------------------------------------------#
-
-if [ "$phpfpm" = 'yes' ]; then
-	fpm="php$fpm_v php$fpm_v-common php$fpm_v-bcmath php$fpm_v-cli
-         php$fpm_v-curl php$fpm_v-fpm php$fpm_v-gd php$fpm_v-intl
-         php$fpm_v-mysql php$fpm_v-soap php$fpm_v-xml php$fpm_v-zip
-         php$fpm_v-mbstring php$fpm_v-bz2 php$fpm_v-pspell
-         php$fpm_v-imagick"
-	software="$software $fpm"
-fi
-
-#----------------------------------------------------------#
 #                     Package Excludes                     #
 #----------------------------------------------------------#
 
@@ -977,7 +954,6 @@ if [ "$apache" = 'no' ]; then
 	software=$(echo "$software" | sed -e "s/apache2.2-common//")
 	software=$(echo "$software" | sed -e "s/libapache2-mod-rpaf//")
 	software=$(echo "$software" | sed -e "s/libapache2-mod-fcgid//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-php$fpm_v//")
 fi
 if [ "$vsftpd" = 'no' ]; then
 	software=$(echo "$software" | sed -e "s/vsftpd//")
@@ -1047,11 +1023,6 @@ fi
 if [ "$webterminal" = 'no' ]; then
 	software=$(echo "$software" | sed -e "s/nodejs//")
 	software=$(echo "$software" | sed -e "s/hestia-web-terminal//")
-fi
-if [ "$phpfpm" = 'yes' ]; then
-	software=$(echo "$software" | sed -e "s/php$fpm_v-cgi//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-ruid2//")
-	software=$(echo "$software" | sed -e "s/libapache2-mod-php$fpm_v//")
 fi
 if [ -d "$withdebs" ]; then
 	software=$(echo "$software" | sed -e "s/hestia-nginx//")
@@ -1333,6 +1304,7 @@ if [ "$apache" = 'yes' ]; then
 	write_config_value "PROXY_PORT" "80"
 	write_config_value "PROXY_SSL_PORT" "443"
 	write_config_value "STATS_SYSTEM" "awstats"
+	write_config_value "WEB_BACKEND" "php-fpm"
 fi
 if [ "$apache" = 'no' ]; then
 	write_config_value "WEB_SYSTEM" "nginx"
@@ -1340,8 +1312,6 @@ if [ "$apache" = 'no' ]; then
 	write_config_value "WEB_SSL_PORT" "443"
 	write_config_value "WEB_SSL" "openssl"
 	write_config_value "STATS_SYSTEM" "awstats"
-fi
-if [ "$phpfpm" = 'yes' ] || [ "$multiphp" = 'yes' ]; then
 	write_config_value "WEB_BACKEND" "php-fpm"
 fi
 
@@ -1653,16 +1623,11 @@ if [ "$apache" = 'yes' ]; then
 	a2dismod --quiet status > /dev/null 2>&1
 	a2enmod --quiet hestia-status > /dev/null 2>&1
 
-	# Enable mod_ruid/mpm_itk or mpm_event
-	if [ "$phpfpm" = 'yes' ]; then
-		# Disable prefork and php, enable event
-		a2dismod php$fpm_v > /dev/null 2>&1
-		a2dismod mpm_prefork > /dev/null 2>&1
-		a2enmod mpm_event > /dev/null 2>&1
-		cp -f $HESTIA_INSTALL_DIR/apache2/hestia-event.conf /etc/apache2/conf.d/
-	else
-		a2enmod ruid2 > /dev/null 2>&1
-	fi
+	# Disable prefork and php, enable mpm_event
+	a2dismod php$fpm_v > /dev/null 2>&1
+	a2dismod mpm_prefork > /dev/null 2>&1
+	a2enmod mpm_event > /dev/null 2>&1
+	cp -f $HESTIA_INSTALL_DIR/apache2/hestia-event.conf /etc/apache2/conf.d/
 
 	echo "# Powered by hestia" > /etc/apache2/sites-available/default
 	echo "# Powered by hestia" > /etc/apache2/sites-available/default-ssl
@@ -1689,26 +1654,24 @@ fi
 #                     Configure PHP-FPM                    #
 #----------------------------------------------------------#
 
-if [ "$phpfpm" = "yes" ]; then
-	if [ "$multiphp" = 'yes' ]; then
-		for v in "${multiphp_v[@]}"; do
-			echo "[ * ] Installing PHP $v..."
-			$HESTIA/bin/v-add-web-php "$v" > /dev/null 2>&1
-		done
-	else
-		echo "[ * ] Installing PHP $fpm_v..."
-		$HESTIA/bin/v-add-web-php "$fpm_v" > /dev/null 2>&1
-	fi
-
-	echo "[ * ] Configuring PHP-FPM $fpm_v..."
-	# Create www.conf for webmail and php(*)admin
-	cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/php/$fpm_v/fpm/pool.d/www.conf
-	update-rc.d php$fpm_v-fpm defaults > /dev/null 2>&1
-	systemctl start php$fpm_v-fpm >> $LOG
-	check_result $? "php-fpm start failed"
-	# Set default php version to $fpm_v
-	update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
+if [ "$multiphp" = 'yes' ]; then
+	for v in "${multiphp_v[@]}"; do
+		echo "[ * ] Installing PHP $v..."
+		$HESTIA/bin/v-add-web-php "$v" > /dev/null 2>&1
+	done
+else
+	echo "[ * ] Installing PHP $fpm_v..."
+	$HESTIA/bin/v-add-web-php "$fpm_v" > /dev/null 2>&1
 fi
+
+echo "[ * ] Configuring PHP-FPM $fpm_v..."
+# Create www.conf for webmail and php(*)admin
+cp -f $HESTIA_INSTALL_DIR/php-fpm/www.conf /etc/php/$fpm_v/fpm/pool.d/www.conf
+update-rc.d php$fpm_v-fpm defaults > /dev/null 2>&1
+systemctl start php$fpm_v-fpm >> $LOG
+check_result $? "php-fpm start failed"
+# Set default php version to $fpm_v
+update-alternatives --set php /usr/bin/php$fpm_v > /dev/null 2>&1
 
 #----------------------------------------------------------#
 #                     Configure PHP                        #

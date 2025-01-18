@@ -28,11 +28,11 @@ steps:
       - ./src/hst_autocompile.sh --hestia --install '~localsrc'
   - name: Reset Web templates
     commands:
-      - rm /usr/local/hestia/data/templates/web/nginx/php-fpm/*.*
-      - rm /usr/local/hestia/data/templates/web/nginx/*.*
-      - rm /usr/local/hestia/data/templates/web/apache2/php-fpm/*.*
-      - rm /usr/local/hestia/data/templates/web/apache2/*.*
-      - rm /usr/local/hestia/data/templates/web/php-fpm/*.*
+      - rm -f /usr/local/hestia/data/templates/web/nginx/php-fpm/*.*
+      - rm -f /usr/local/hestia/data/templates/web/nginx/*.*
+      - rm -f /usr/local/hestia/data/templates/web/apache2/php-fpm/*.*
+      - rm -f /usr/local/hestia/data/templates/web/apache2/*.*
+      - rm -f /usr/local/hestia/data/templates/web/php-fpm/*.*
       - /usr/local/hestia/bin/v-update-web-templates
   - name: Run system / user tests
     commands:
@@ -84,11 +84,11 @@ steps:
       - ./src/hst_autocompile.sh --hestia --install '~localsrc'
   - name: Reset Web templates
     commands:
-      - rm /usr/local/hestia/data/templates/web/nginx/php-fpm/*.*
-      - rm /usr/local/hestia/data/templates/web/nginx/*.*
-      - rm /usr/local/hestia/data/templates/web/apache2/php-fpm/*.*
-      - rm /usr/local/hestia/data/templates/web/apache2/*.*
-      - rm /usr/local/hestia/data/templates/web/php-fpm/*.*
+      - rm -f /usr/local/hestia/data/templates/web/nginx/php-fpm/*.*
+      - rm -f /usr/local/hestia/data/templates/web/nginx/*.*
+      - rm -f /usr/local/hestia/data/templates/web/apache2/php-fpm/*.*
+      - rm -f /usr/local/hestia/data/templates/web/apache2/*.*
+      - rm -f /usr/local/hestia/data/templates/web/php-fpm/*.*
       - /usr/local/hestia/bin/v-update-web-templates
   - name: Run system / user tests
     commands:
