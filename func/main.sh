@@ -766,6 +766,31 @@ is_user_format_valid() {
 	fi
 }
 
+# Proxy format validator
+is_proxy_url_valid() {
+	local url=$1
+	echo $url
+
+	if [[ -z "$url" ]]; then
+		return 0
+	fi
+
+	local url_regex='^(https?://|http://)[a-zA-Z0-9.-]+(:[0-9]{1,5})?$'
+
+	if [[ ! $url =~ $url_regex ]]; then
+		check_result "$E_INVALID" "Invalid proxy URL format" $object_name
+	fi
+
+	if [[ $url == *".."* ]] || [[ $url == *"\\"* ]] || [[ $url == *"%"* ]]; then
+		check_result "$E_INVALID" "Proxy URL contains unsafe characters" $object_name
+	fi
+
+	local test=$(echo "$url" | head -n1)
+	if [[ "$test" != "$url" ]]; then
+		check_result "$E_INVALID" "Proxy URL contains newline characters" $object_name
+	fi
+}
+
 # Domain format validator
 is_domain_format_valid() {
 	object_name=${2-domain}
@@ -1318,6 +1343,7 @@ is_format_valid() {
 				port_ext) is_fw_port_format_valid "$arg" ;;
 				protocol) is_fw_protocol_format_valid "$arg" ;;
 				proxy_ext) is_extention_format_valid "$arg" ;;
+				proxy_url) is_proxy_url_valid "$arg" ;;
 				quota) is_int_format_valid "$arg" 'quota' ;;
 				rate) is_int_format_valid "$arg" 'rate' ;;
 				record) is_common_format_valid "$arg" 'record' ;;

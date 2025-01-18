@@ -59,6 +59,7 @@ if (!empty($_POST["ok"])) {
 
 	// Define proxy extensions
 	$_POST["v_proxy_ext"] = "";
+	$_POST["v_proxy_url"] = "";
 
 	exec(HESTIA_CMD . "v-list-user " . $user . " json", $output, $return_var);
 	$user_config = json_decode(implode("", $output), true);

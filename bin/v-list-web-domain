@@ -46,6 +46,7 @@ json_list() {
         "AUTH_USER": "'$AUTH_USER'",
         "BACKEND": "'$BACKEND'",
         "PROXY": "'$PROXY'",
+        "PROXY_URL": "'$PROXY_URL'",
         "PROXY_EXT": "'$PROXY_EXT'",
         "FASTCGI_CACHE": "'$FASTCGI_CACHE'",
         "FASTCGI_DURATION": "'$FASTCGI_DURATION'",

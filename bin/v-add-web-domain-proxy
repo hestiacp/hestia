@@ -19,6 +19,7 @@ default_extentions="jpg,jpeg,gif,png,webp,ico,svg,css,zip,tgz,gz,rar,bz2,doc,xls
 exe,pdf,ppt,txt,odt,ods,odp,odf,tar,wav,bmp,rtf,js,mp3,avi,mpeg,flv,html,htm"
 extentions=${4-$default_extentions}
 restart="$5"
+proxy_url="$6"
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
@@ -44,6 +45,7 @@ is_object_unsuspended 'user' 'USER' "$user"
 is_object_valid 'web' 'DOMAIN' "$domain"
 is_object_unsuspended 'web' 'DOMAIN' "$domain"
 is_object_value_empty 'web' 'DOMAIN' "$domain" '$PROXY'
+is_format_valid 'proxy_url'
 if [ -z $template ]; then
 	template=$(get_user_value '$PROXY_TEMPLATE')
 fi
@@ -63,6 +65,7 @@ local_ip=$(get_real_ip "$IP")
 
 # Preparing domain values for the template substitution
 PROXY_EXT="$extentions"
+PROXY_URL="$proxy_url"
 add_web_config "$PROXY_SYSTEM" "$template.tpl"
 
 # Adding proxy for ssl
@@ -77,6 +80,7 @@ fi
 # Update config
 update_object_value 'web' 'DOMAIN' "$domain" '$PROXY' "$template"
 update_object_value 'web' 'DOMAIN' "$domain" '$PROXY_EXT' "$extentions"
+update_object_value 'web' 'DOMAIN' "$domain" '$PROXY_URL' "$proxy_url"
 
 # Restarting web server
 $BIN/v-restart-proxy "$restart"

@@ -82,6 +82,7 @@ if (empty($v_nginx_cache_duration)) {
 }
 $v_proxy = $data[$v_domain]["PROXY"];
 $v_proxy_template = $data[$v_domain]["PROXY"];
+$v_proxy_url = $data[$v_domain]["PROXY_URL"];
 $v_proxy_ext = str_replace(",", ", ", $data[$v_domain]["PROXY_EXT"]);
 $v_stats = $data[$v_domain]["STATS"];
 $v_stats_user = $data[$v_domain]["STATS_USER"];
@@ -417,10 +418,13 @@ if (!empty($_POST["save"])) {
 			$ext = preg_replace("/\s+/", " ", $ext);
 			$ext = trim($ext);
 			$ext = str_replace(" ", ", ", $ext);
-			if ($v_proxy_template != $_POST["v_proxy_template"] || $v_proxy_ext != $ext) {
+			if ($v_proxy_template != $_POST["v_proxy_template"] || $v_proxy_ext != $ext || $v_proxy_url != $_POST["v_proxy_url"]) {
 				$ext = str_replace(", ", ",", $ext);
 				if (!empty($_POST["v_proxy_template"])) {
 					$v_proxy_template = $_POST["v_proxy_template"];
+				}
+				if (!empty($_POST["v_proxy_url"])) {
+					$v_proxy_url = $_POST["v_proxy_url"];
 				}
 				exec(
 					HESTIA_CMD .
@@ -432,7 +436,9 @@ if (!empty($_POST["save"])) {
 						quoteshellarg($v_proxy_template) .
 						" " .
 						quoteshellarg($ext) .
-						" 'no'",
+						" 'no'" .
+						" " .
+						quoteshellarg($v_proxy_url),
 					$output,
 					$return_var,
 				);
@@ -451,6 +457,7 @@ if (!empty($_POST["save"])) {
 			empty($_SESSION["error_msg"])
 		) {
 			$v_proxy_template = $_POST["v_proxy_template"];
+			$v_proxy_url = $_POST["v_proxy_url"];
 			if (!empty($_POST["v_proxy_ext"])) {
 				$ext = preg_replace("/\n/", " ", $_POST["v_proxy_ext"]);
 				$ext = preg_replace("/,/", " ", $ext);
@@ -469,7 +476,9 @@ if (!empty($_POST["save"])) {
 					quoteshellarg($v_proxy_template) .
 					" " .
 					quoteshellarg($ext) .
-					" 'no'",
+					" 'no'" .
+					" " .
+					quoteshellarg($v_proxy_url),
 				$output,
 				$return_var,
 			);

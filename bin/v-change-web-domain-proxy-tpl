@@ -19,6 +19,7 @@ default_extentions="jpg,jpeg,gif,png,ico,svg,css,zip,tgz,gz,rar,bz2,doc,xls,\
 exe,pdf,ppt,txt,odt,ods,odp,odf,tar,wav,bmp,rtf,js,mp3,avi,mpeg,flv,html,htm"
 extentions=${4-$default_extentions}
 restart="$5"
+proxy_url="$6"
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
@@ -49,6 +50,7 @@ is_object_unsuspended 'user' 'USER' "$user"
 is_object_valid 'web' 'DOMAIN' "$domain"
 is_object_unsuspended 'web' 'DOMAIN' "$domain"
 is_object_value_exist 'web' 'DOMAIN' "$domain" '$PROXY'
+is_format_valid 'proxy_url'
 is_proxy_template_valid $template
 
 # Perform verification if read-only mode is enabled
@@ -71,6 +73,7 @@ fi
 # Add new vhost
 PROXY="$template"
 PROXY_EXT="$extentions"
+PROXY_URL="$proxy_url"
 
 prepare_web_domain_values
 add_web_config "$PROXY_SYSTEM" "$PROXY.tpl"
@@ -85,6 +88,7 @@ fi
 # Updating config
 update_object_value 'web' 'DOMAIN' "$domain" '$PROXY' "$PROXY"
 update_object_value 'web' 'DOMAIN' "$domain" '$PROXY_EXT' "$extentions"
+update_object_value 'web' 'DOMAIN' "$domain" '$PROXY_URL' "$proxy_url"
 
 # Restarting proxy
 $BIN/v-restart-proxy "$restart"
