@@ -101,3 +101,12 @@ $BIN/v-add-user-notification 'admin' 'Hestia security has been upgraded' ' A new
 add_upgrade_message 'Security has been upgraded, A new user "hestiaweb" has been created and is used for login. Make sure other Hestia packages are updated as well otherwise the system may not work as expected.'
 # Ensures proper permissions for Hestia service interactions.
 /usr/sbin/adduser hestiamail hestia-users
+
+locale_file="/etc/default/locale"
+if ! grep -qiE "utf-?8" "$locale_file"; then
+	echo "Phrase 'utf8' or 'utf-8' not found in $locale_file. Switching to C.UTF-8"
+	sudo locale-gen C.UTF-8
+	echo 'LANG="C.UTF-8"' | sudo tee "$locale_file"
+	sudo update-locale
+	export LANG=C.UTF-8
+fi
