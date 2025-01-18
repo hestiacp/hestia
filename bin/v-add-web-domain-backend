@@ -55,7 +55,7 @@ fi
 
 # Allocating backend port
 backend_port=9000
-ports=$(grep -v '^;' $pool/* 2> /dev/null | grep listen | grep -o :[0-9].*)
+ports=$(grep $pool/* 2> /dev/null | grep -o :[0-9].*)
 ports=$(echo "$ports" | sed "s/://" | sort -n)
 for port in $ports; do
 	if [ "$backend_port" -eq "$port" ]; then
