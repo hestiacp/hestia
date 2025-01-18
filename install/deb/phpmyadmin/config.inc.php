@@ -34,3 +34,8 @@ foreach (glob("/etc/phpmyadmin/conf.d/*.php") as $filename) {
 	//Add Hestia SSO code here
 	$i++;
 }
+
+/**
+ * Put tmp on the right dir
+ */
+$cfg["TempDir"] = "/tmp";

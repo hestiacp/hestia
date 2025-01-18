@@ -1,0 +1,255 @@
+#!/bin/bash
+# info: fix hestiacp system
+#
+# example: v-repair-system
+#
+# This function is for correcting the hestiacp problems and
+# derivative file system problems
+
+#----------------------------------------------------------#
+#                Variables & Functions                     #
+#----------------------------------------------------------#
+
+# Includes
+# shellcheck source=/etc/hestiacp/hestia.conf
+source /etc/hestiacp/hestia.conf
+# shellcheck source=/usr/local/hestia/func/main.sh
+source $HESTIA/func/main.sh
+# load config file
+source_conf "$HESTIA/conf/hestia.conf"
+
+#
+# function check_ownership
+#
+# @param string full path directory
+#
+# @param string ownership
+# @example "root:root"
+#
+# @param string recursive
+# values "0" - no; "1" - yes
+#
+# @param excludes
+# @example "test ssl base"
+#
+check_ownership() {
+	dir_file="$1"
+	ownership="$2"
+	recursive="$3"
+	exclusions="$4"
+
+	if [[ -z $recursive ]]; then
+		recursive="0"
+	fi
+
+	if [[ -z $exclusions ]]; then
+		exclusions=""
+	fi
+
+	if [[ -z $1 ]]; then
+		echo "Error Invalid Directory/file: '$1' 1st parameter cannot be empty"
+		return 1
+	fi
+
+	if [[ -z $2 ]]; then
+		echo "Error Invalid permissions: '$2' 2nd parameter cannot be empty"
+		return 1
+	fi
+
+	ownership_regex="^[0-9a-zA-Z\_\-]*:[0-9a-zA-Z\_\-]*$"
+
+	if ! [[ $ownership =~ $ownership_regex ]]; then
+		echo "Error ownership format: '$ownership' the format must be 'example:example'"
+		return 1
+	fi
+
+	if ! [[ -d $1 || -f $1 ]]; then
+		echo "'$dir_file' is not a directory nor a file"
+		return 1
+	fi
+
+	if [[ $recursive != "0" && $recursive != "1" ]]; then
+		echo "recursive can only be '1' or '0'. '$recursive' provided"
+		return 1
+	fi
+
+	echo "working on INPUT: $dir_file"
+	if [[ -f $dir_file ]]; then
+		file_ownership=$(stat -c %U:%G "$dir_file")
+		if [[ $file_ownership != $ownership ]]; then
+			chown -h "$ownership" "$dir_file"
+		fi
+	elif [[ -d $dir_file ]]; then
+		#check if the base dir has the permissions set
+		dir_ownership=$(stat -c %U:%G "$dir_file")
+		if [[ "$dir_ownership" != "$ownership" ]]; then
+			echo "changed ownership of: $dir_file"
+			chown -h "$ownership" "$dir_file"
+		fi
+		children_work=$(ls $dir_file)
+		echo "exclusions: $exclusions"
+		for work in $children_work; do
+			bypass="0"
+			if [[ "$exclusions" != "" ]]; then
+				for exclude in $exclusions; do
+					if [[ "$exclude" == "$work" || "$exclude" == "$dir_file/$work" ]]; then
+						bypass="1"
+					fi
+				done
+			fi
+			work_with="$dir_file/$work"
+			if ! [[ -d $work_with || -f $work_with ]]; then
+				echo "directory or file not found: $work_with"
+			elif [[ -n "$work_with" && $bypass == "0" ]]; then
+				work_ownership=$(stat -c %U:%G "$work_with")
+				if [[ "$work_ownership" != "$ownership" ]]; then
+					chown -h "$ownership" "$work_with"
+				fi
+				if [[ -d "$work_with" && "$recursive" == "1" ]]; then
+					# prevent direct scope vars from interfering
+					prevent_direct_var_access=$(check_ownership "$work_with" "$ownership" "$recursive" "$exclusions" > /dev/tty)
+				fi
+			fi
+		done
+	fi
+}
+
+#----------------------------------------------------------#
+#               check hestia directories                   #
+#----------------------------------------------------------#
+echo "Checking and correcting Hestia Directory ownerships"
+hestia_exclusions="data ssl web"
+echo "Base:"
+check_ownership "$HESTIA" "root:root" "1" "$hestia_exclusions"
+
+# Session
+echo "Session"
+check_ownership "$HESTIA/data/sessions" "hestiaweb:hestiaweb" "1"
+
+# File manager
+echo "File Manager"
+check_ownership "$HESTIA/web/fm/private" "admin:admin"
+check_ownership "$HESTIA/web/fm/private/tmp" "admin:admin"
+check_ownership "$HESTIA/web/fm/private/logs" "admin:admin"
+check_ownership "$HESTIA/web/fm/private/logs/app.log" "admin:admin"
+check_ownership "$HESTIA/web/fm/repository" "admin:admin"
+
+# Mail
+echo "Mail"
+check_ownership "$HESTIA/ssl/certificate.key" "Debian-exim:mail"
+check_ownership "$HESTIA/ssl/certificate.crt" "Debian-exim:mail"
+
+# Mail Server Certificates
+echo "Mail Server Certificates"
+check_ownership "$HESTIA/ssl/mail" "Debian-exim:mail" "1"
+
+# Done HestiaCP Ownership
+
+# PHP My Admin
+echo "Check PHP My Admin"
+check_ownership "/usr/share/phpmyadmin" "hestiaweb:hestiaweb" "1"
+# notes
+#	- latest hestia install makes this permissions recursive on the end of the script 'root:www-data'
+#	- this may change to hestiaweb:hestiaweb user
+# check : https://github.com/hestiacp/hestiacp/blob/main/install/hst-install-debian.sh#L1870
+# check : https://github.com/hestiacp/hestiacp/blob/main/install/hst-install-ubuntu.sh#L1880
+
+# check if the file contains
+isInFile=$(cat "/etc/phpmyadmin/config.inc.php" | grep -c "\$cfg\['TempDir'\] = '/tmp';")
+if [ $isInFile -eq 0 ]; then
+	# default temp dir not defined, define in the end of the config file
+	echo "\$cfg['TempDir'] = '/tmp';" >> "/etc/phpmyadmin/config.inc.php"
+fi
+
+# PostgresSQL
+echo "check phppgadmin"
+check_ownership "/usr/share/phppgadmin" "hestiaweb:hestiaweb" "1"
+# notes
+#	- latest hestia install does not have the permissions of the folder
+#	- this may change to hestiaweb:hestiaweb user
+
+# Dovecot
+echo "Check Dovecot"
+check_ownership "/etc/dovecot" "root:root" "1"
+
+# Hestia cron tabs
+echo "Cron Tasks"
+check_ownership "/var/spool/cron/crontabs/hestiaweb" "hestiaweb:hestiaweb" "0" # Is a file, not a dir
+
+#----------------------------------------------------------#
+#      check hestia base package package checksums         #
+#----------------------------------------------------------#
+echo "Checking Dependencies"
+echo "dependency: 'debsums'"
+hestiacp_checksum_installed_package=$(dpkg -l | grep -e debsums) > /dev/null 2>&1
+if [[ -z "$hestiacp_checksum_installed_package" ]]; then
+	echo "Updating apt repository"
+	$(apt update) > /dev/null 2>&1
+	echo "done"
+	echo "Installing Dependency $(debsums)"
+	$(apt install debsums -y) > /dev/null 2>&1
+	echo "Installed"
+else
+	echo "Already Installed"
+fi
+
+echo "Checking HestiaCP install, packages: 'hestia', 'hestia-php', 'hestia-nginx'"
+echo "Base package: hestia"
+
+hestia_base_checksums=$(debsums hestia | grep "FAILED" | awk '{print $1}' | awk '{printf "%s ",$0} END {print ""}')
+allowed_files=(
+	"$HESTIA/web/favicon.ico"
+	"$HESTIA/web/images/favicon.png"
+	"$HESTIA/web/images/logo-header.svg"
+	"$HESTIA/web/images/logo.png"
+	"$HESTIA/web/images/logo.svg"
+)
+repair_install="0"
+for file in $hestia_base_checksums; do
+	if [[ $repair_install == "1" ]]; then
+		break
+	fi
+	find_in_array=$(echo "${allowed_files[@]}" | grep -ow "$file" | wc -w)
+	if [[ $find_in_array != 1 ]]; then
+		repair_install="1"
+	fi
+done
+
+if [[ $repair_install == "1" ]]; then
+	echo "reinstall needed: 'hestia'"
+	$(apt install hestia --reinstall)
+else
+	echo "package 'hestia' is OK"
+fi
+
+#----------------------------------------------------------#
+#       check hestia php package package checksums         #
+#----------------------------------------------------------#
+echo "Base package: hestia-php"
+hestia_php_checksums=$(debsums hestia-php | grep "FAILED" | awk '{print $1}' | awk '{printf "%s ",$0} END {print ""}')
+if [[ -n $hestia_php_checksums ]]; then
+	echo "reinstall needed: 'hestia-php'"
+	$(apt install hestia-php --reinstall)
+else
+	echo "package 'hestia-php' is OK"
+fi
+
+#----------------------------------------------------------#
+#      check hestia nginx package package checksums        #
+#----------------------------------------------------------#
+echo "Base package: hestia-nginx"
+hestia_nginx_checksums=$(debsums hestia-nginx | grep "FAILED" | awk '{print $1}' | awk '{printf "%s",$0} END {print ""}')
+
+reinstall_hestia_nginx="0"
+if [[ -n $hestia_nginx_checksums ]]; then
+	if [[ $hestia_nginx_checksums != "$HESTIA/nginx/conf/nginx.conf" ]]; then
+		reinstall_hestia_nginx="1"
+		echo "reinstall needed: 'hestia-nginx'"
+	fi
+fi
+if [[ $reinstall_hestia_nginx == "1" ]]; then
+	echo "reinstall needed: 'hestia-nginx'"
+	$(apt install hestia-nginx --reinstall)
+else
+	echo "package 'hestia-nginx' is OK"
+fi
