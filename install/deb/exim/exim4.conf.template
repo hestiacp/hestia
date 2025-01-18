@@ -387,6 +387,7 @@ remote_smtp:
   dkim_strict = 0
   hosts_try_fastopen = !*.l.google.com
   interface = ${if exists{OUTGOING_IP}{${readfile{OUTGOING_IP}}}}
+  headers_remove = Received : X-Originating-IP
 
 procmail:
   driver = pipe

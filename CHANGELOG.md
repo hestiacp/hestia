@@ -67,6 +67,7 @@ All notable changes to this project will be documented in this file.
 - Improve Owncloud templates (#4572)
 - Improve security Quick Install Apps (#457 #4569 #4568 #4567 #4566 #4565 #4564 #4563)
 - Add hestia-mail to hestia-users group and create hestia-users group on new install #4540 #4531
+- Hide orgin ip of clients when sending email #4662
 
 ### Depencies
 
