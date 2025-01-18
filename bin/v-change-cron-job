@@ -1,6 +1,6 @@
 #!/bin/bash
 # info: change cron job
-# options: USER JOB MIN HOUR DAY MONTH WDAY COMMAND
+# options: USER JOB MIN HOUR DAY MONTH WDAY CRON_COMMAND
 #
 # example: v-change-cron-job admin 7 * * * * * /usr/bin/uptime
 #
@@ -19,7 +19,7 @@ hour=$4
 day=$5
 month=$6
 wday=$7
-command=$8
+cron_command=$8
 
 # Includes
 # shellcheck source=/etc/hestiacp/hestia.conf
@@ -33,8 +33,8 @@ source_conf "$HESTIA/conf/hestia.conf"
 #                    Verifications                         #
 #----------------------------------------------------------#
 
-check_args '7' "$#" 'USER JOB MIN HOUR DAY MONTH WDAY COMMAND'
-is_format_valid 'user' 'job' 'min' 'hour' 'day' 'month' 'wday' 'command'
+check_args '7' "$#" 'USER JOB MIN HOUR DAY MONTH WDAY CRON_COMMAND'
+is_format_valid 'user' 'job' 'min' 'hour' 'day' 'month' 'wday' 'cron_command'
 is_system_enabled "$CRON_SYSTEM" 'CRON_SYSTEM'
 is_object_valid 'user' 'USER' "$user"
 is_object_unsuspended 'user' 'USER' "$user"
@@ -54,9 +54,9 @@ time=$(echo "$time_n_date" | cut -f 1 -d \ )
 date=$(echo "$time_n_date" | cut -f 2 -d \ )
 
 # Concatenating cron string
-command=$(echo "$command" | sed -e "s/'/%quote%/g")
+cron_command=$(echo "$cron_command" | sed -e "s/'/%quote%/g")
 str="JOB='$job' MIN='$min' HOUR='$hour' DAY='$day' MONTH='$month' WDAY='$wday'"
-str="$str CMD='$command' SUSPENDED='no' TIME='$time' DATE='$date'"
+str="$str CMD='$cron_command' SUSPENDED='no' TIME='$time' DATE='$date'"
 
 # Deleting old job
 sed -i "/JOB='$job' /d" $USER_DATA/cron.conf
@@ -79,7 +79,7 @@ $BIN/v-restart-cron
 check_result $? "Cron restart failed" > /dev/null
 
 # Logging
-$BIN/v-log-action "$user" "Info" "Cron Jobs" "Cron job updated (Job: $job, Command: $command)."
+$BIN/v-log-action "$user" "Info" "Cron Jobs" "Cron job updated (Job: $job, Command: $cron_command)."
 log_event "$OK" "$ARGUMENTS"
 
 exit

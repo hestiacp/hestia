@@ -991,7 +991,11 @@ is_string_format_valid() {
 	fi
 	is_no_new_line_format "$1"
 }
-
+is_cron_command_valid_format() {
+	if [[ ! "$1" =~ ^[^\`]*?$ ]]; then
+		check_result "$E_INVALID" "Invalid cron command format"
+	fi
+}
 # Database format validator
 is_database_format_valid() {
 	exclude="[!|@|#|$|^|&|*|(|)|+|=|{|}|:|,|<|>|?|/|\|\"|'|;|%|\`| ]"
@@ -1266,6 +1270,7 @@ is_format_valid() {
 				charsets) is_common_format_valid "$arg" 'charsets' ;;
 				chain) is_object_format_valid "$arg" 'chain' ;;
 				comment) is_object_format_valid "$arg" 'comment' ;;
+				cron_command) is_cron_command_valid_format "$arg" ;;
 				database) is_database_format_valid "$arg" 'database' ;;
 				day) is_cron_format_valid "$arg" $arg_name ;;
 				dbpass) is_password_format_valid "$arg" ;;
